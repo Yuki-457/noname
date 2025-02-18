@@ -1,0 +1,403 @@
+let buttons = [];
+let gameState = "menu";
+let volume = 5;
+let controls = {left:'A', right:'D', attack:'J', jump:'K', item:'I', pause:'P', use:'E'};
+let controlKeys = Object.keys(controls);
+let changingKey = null;
+let titleFontSize = 48;
+let titleY;
+let groundHeight = 150;
+let sceneIndex = 0;
+let goldCoins = 0;
+let level = 1;
+let exp = 0;
+let elapsedTime = 0;
+let portals = [];
+let unlockedPortals = [];
+let isChoosingPortal = false;
+let selectedPortalIndex = 0;
+let spikes = [];
+let currentSpawnPoint = null;
+
+function setup() {
+  createCanvas(800, 600);
+  textAlign(CENTER, CENTER);
+  titleY = height / 4;//设置标题位置
+  
+  let startY = height / 2;
+  
+  buttons.push(new Button(width / 2 - 100, height / 2 - 60, "New Start", () => gameState = "playing"));
+  buttons.push(new Button(width / 2 - 100, height / 2, "Continue", () => console.log("Load Game")));
+  buttons.push(new Button(width / 2 - 100, height / 2 + 60, "Setting", () => gameState = "settings"));
+  buttons.push(new Button(width / 2 - 100, height / 2 + 120, "Exit", () => noLoop()));
+  //按钮位置
+  
+  player = new Player(50, height - groundHeight - 50);
+  portals.push(new Portal(100, height - groundHeight - 60));
+  currentSpawnPoint = {x: 100, y: height - groundHeight - 50};
+  spikes.push(new Spike(150, height - groundHeight - 30, 50));
+}
+
+function draw() {
+  background(240);
+  
+  if(gameState === "menu"){
+    drawMenu();
+  }
+  else if(gameState === "settings"){
+    drawSettings();
+  }
+  else if(gameState === "playing"){
+    drawGame();
+  }
+}
+
+function drawMenu(){
+  background(240);
+  fill(50);
+  textSize(titleFontSize);
+  text("Mario Soul", width / 2, titleY);
+  
+  for (let btn of buttons) {
+    btn.display();
+  }
+}
+
+function drawGame(){
+  background(135, 206, 250);
+  fill(100, 200, 100);
+  rect(0, height - groundHeight, width, groundHeight);
+  
+  player.update();
+  player.display();
+  
+  for(let portal of portals){
+    portal.update();
+    portal.display();
+  }
+  
+  for(let spike of spikes){
+    spike.update();
+    spike.display();
+  }
+  
+  drawHUD();
+  
+  //fill(0);
+  //textSize(20);
+  //text(`Scene: ${sceneIndex}`, width - 80, 30);
+  
+  if(isChoosingPortal){
+    drawPortalSelection();
+  }
+}
+
+class Spike{
+  constructor(x, y, w){
+    this.x = x;
+    this.y = height - groundHeight;
+    this.w = w;
+    this.h = 15;
+    this.visible = false;
+  }
+  
+  update(){
+    if(dist(player.x, player.y, this.x + this.w / 2, this.y) < 30){
+      this.visible = true;
+    }
+    
+    if(this.visible && this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    if(this.visible){
+      fill(200, 0, 0);
+      triangle(this.x, this.y, this.x + this.w / 2, this.y - this.h, this.x + this.w, this.y);
+    }
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.w && player.x + player.w > this.x && 
+           player.y + player.h > this.y - this.h);
+  }
+}
+
+function respawnPlayer(){
+  player.x = currentSpawnPoint.x;
+  player.y = currentSpawnPoint.y;
+}
+
+function drawPortalSelection(){
+  fill(0, 150);
+  rect(200, 150, 400, 300, 20);
+  fill(250);
+  textSize(24);
+  text("Select a Portal", 400, 180);
+  
+  for(let i = 0; i < unlockedPortalIndex; i++){
+    let portal = unlockedPortals[i];
+    fill(i === selectedPortalIndex ? "yellow" : "white");
+    text(`Portal ${i + 1} (X: ${portal.x})`, 400, 220 + i * 40);
+  }
+  
+  textSize(16);
+  fill(200);
+  text("↑/↓ to navigate, E to confirm, ESC to cancel", 400, 420);
+}
+
+function drawHUD(){
+  fill(255);
+  textSize(16);
+  
+  text(`Level ${level}`, 80, 30);
+  fill("gold");
+  rect(20, 40, (exp / 10) * 100, 10);
+  noFill();
+  stroke(255);
+  rect(20, 40, 100, 10);
+  
+  let timeElapsed = Math.floor(millis() / 1000);
+  text(`Time: ${timeElapsed}s`, width - 80, 30);
+}
+
+class Portal{
+  constructor(x, y){
+    this.x = x;
+    this.y = y;
+    this.w = 60;
+    this.h = 60;
+    this.unlocked = false;
+  }
+  
+  update(){
+    if(!this.unlocked && this.isCollidingWithPlayer()){
+      this.unlocked = true;
+      unlockedPortals.push(this);
+      goldCoins += 5;
+      exp += 5;
+      currentSpawnPoint = { x: this.x, y: this.y};
+    }
+    
+    if(this.unlocked && this.isCollidingWithPlayer() && keyIsDown(controls.use.charCodeAt(0))){
+      if(unlockedPortals.length > 1){
+        isChoosingPortal = true;
+        selectedPortalIndex = 0;
+      }
+    }
+  }
+  
+  display(){
+    fill(this.unlocked ? "blue" : "gray");
+    rect(this.x, this.y, this.w, this.h);
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.w && player.x + player.w > this.x &&
+           player.y < this.y + this.h && player.y + player.h > this.y);
+  }
+}
+
+function teleport(targetPortal){
+  if(targetPortal){
+    player.x = targetPortal.x;
+    player.y = targetPortal.y;
+  }
+}
+
+function collection(){
+  goldCoins += 1;
+  exp += 1;
+  if(exp >= 10){
+    exp = 0;
+    level += 1;
+  }
+}
+
+class Player{
+  constructor(x, y){
+    this.x = x;
+    this.y = y;
+    this.w = 40;
+    this.h = 60;
+    this.speed = 3;
+    this.gravity = 0.5;
+    this.jumpPower = -Math.sqrt(2 * this.gravity * 150);
+    this.velocityY = 0;
+    this.onGround = false;
+    this.canDoubleJump = false;
+    this.hasDoubleJumped = false;
+  }
+  
+  update(){
+    if(keyIsDown(controls.left.charCodeAt(0))){
+      this.x -= this.speed;
+    }
+    if(keyIsDown(controls.right.charCodeAt(0))){
+      this.x += this.speed;
+    }
+    
+    if(keyIsDown(controls.jump.charCodeAt(0))){
+      if(this.onGround){
+        this.velocityY = this.jumpPower;
+        this.onGround = false;
+        this.hasDoubleJumpes = false;
+      }
+      else if(this.canDoubleJump && !this.hasDoubleJumped){
+        this.velocityY = this.jumpPower * 0.9;
+        this.hasDoubleJumped = true;
+      }
+    }
+    
+    this.velocityY += this.gravity;
+    this.y += this.velocityY;
+    
+    if(this.y >= height - groundHeight - this.h){
+      this.y = height - groundHeight - this.h;
+      this.velocityY = 0;
+      this.onGround = true;
+      this.hasDoubleJumped = false;
+    }
+    
+    this.x = constrain(this.x, 0, width - this.w);
+  }
+  
+  display(){
+    fill(255, 0, 0);
+    rect(this.x, this.y, this.w, this.h);
+  }
+}
+
+function drawSettings(){
+  fill(50);
+  textSize(32);
+  text("Settings", width / 2, 50);
+  
+  textSize(24);
+  text("Volume", width / 2, 150);
+  text(volume, width / 2, 180);
+  rect(width / 2 - 70, 170, 30, 30);
+  rect(width / 2 + 40, 170, 30, 30);
+  text("-", width / 2 - 55, 185);
+  text("+", width / 2 + 55, 185);
+  
+  let controlLabels = ["Left", "Right", "Attack", "Jump", "Item", "Pause", "Use"];
+  let keys = Object.values(controls);
+  
+  for(let i = 0; i < controlLabels.length; i++){
+    let y = 250 + i * 40;
+    
+    let displayText = changingKey === controlKeys[i] ? "Press any key..." : `${controlLabels[i]}: ${keys[i]}`;
+    
+    if(changingKey === controlKeys[i]){
+      fill(255, 0, 0);
+    }
+    else{
+      fill(0);
+    }
+    text(displayText, width / 2, y);
+    
+    stroke(0);
+    noFill();
+    rect(width / 2 - 100, y - 15, 200, 30);
+  }
+  
+  textSize(20);
+  text("Press any key to change setting", width / 2, 520);
+  text("Press ESC to return", width / 2, 550);
+}
+
+function mousePressed(){
+  if(gameState === "menu"){
+    for(let btn of buttons){
+      btn.checkClick();
+    }
+  }
+  else if(gameState === "settings"){
+    if(mouseX > width / 2 - 70 && mouseX < width / 2 - 40 && mouseY > 170 && mouseY < 200){
+      volume = max(0, volume - 1);
+    }
+    if(mouseX > width / 2 + 40 && mouseX < width / 2 + 70 && mouseY > 170 && mouseY < 200){
+      volume = min(10, volume + 1);
+    }
+    
+    let controlLabels = ["Left", "Right", "Attack", "Jump", "Item", "Pause", "Use"];
+    for(let i = 0; i < controlLabels.length; i++){
+      let y = 250 + i * 40;
+      if(mouseX > width / 2 - 100 && mouseX < width / 2 + 100 && mouseY > y - 15 && mouseY < y + 15){
+        changingKey = controlKeys[i];
+      }
+    }
+  }
+}
+
+function keyPressed(){
+  if(gameState === "settings"){
+    if(keyCode === ESCAPE){
+      changingKey = null;
+      gameState = "menu";
+    }
+    else if(changingKey){
+      controls[changingKey] = key.toUpperCase();
+      changingKey = null;
+    }
+  }
+  
+  else if(isChoosingPortal){
+    if(keyCode === UP_ARROW){
+      selectedPortalIndex = max(0, selectedPortalIndex - 1);
+    }
+    else if(keyCode === DOWN_ARROW){
+      selectedPortalIndex = min(0, selectedPortalIndex - 1);
+    }
+    else if(keyCode === controls.use.charCodeAt(0)){
+      teleport(unlockedPortals[selectedPortalIndex]);
+      isChoosingPortal = false;
+    }
+    else if(keyCode === ESCAPE){
+      isChoosingPortal = false;
+    }
+  }
+}
+
+class Button{
+  constructor(x, y, label, action){
+    this.x = x;
+    this.y = y;
+    this.label = label;
+    this.action = action;
+    this.w = 200;
+    this.h = 50;
+    this.defaultColor = color(200);
+    this.hoverColor = color(150);
+    this.currentColor = this.defaultColor;
+  }
+  
+  display(){
+    if(this.isHovered()){
+      this.currentColor = this.hoverColor;
+    }
+    else{
+      this.currentColor = this.defaultColor;
+    }
+    
+    fill(this.currentColor);
+    stroke(0);
+    rect(this.x, this.y, this.w, this.h, 10);//圆角矩形
+    
+    fill(0);
+    textSize(24);
+    text(this.label, this.x + this.w / 2, this.y + this.h / 2);
+  }
+  
+  isHovered(){
+    return mouseX > this.x && mouseX < this.x + this.w && mouseY > this.y && mouseY < this.y + this.h;
+  }
+  
+  checkClick(){
+    if(this.isHovered()){
+      this.action();
+    }
+  }
+}
