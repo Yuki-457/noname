@@ -18,6 +18,8 @@ let isChoosingPortal = false;
 let selectedPortalIndex = 0;
 let spikes = [];
 let currentSpawnPoint = null;
+let platforms = [];
+let coins = [];
 
 function setup() {
   createCanvas(800, 600);
@@ -32,10 +34,18 @@ function setup() {
   buttons.push(new Button(width / 2 - 100, height / 2 + 120, "Exit", () => noLoop()));
   //按钮位置
   
-  player = new Player(50, height - groundHeight - 50);
+  player = new Player(50, height - groundHeight - 40);
   portals.push(new Portal(100, height - groundHeight - 60));
   currentSpawnPoint = {x: 100, y: height - groundHeight - 50};
-  spikes.push(new Spike(150, height - groundHeight - 30, 50));
+  spikes.push(new Spike(250, height - groundHeight, 50));
+  
+  let platformStartX = 450;
+  let platformY = height - groundHeight - 130;
+  let platformSize = 30;
+  
+  for(let i = 0; i < 4; i++){
+    platforms.push(new Platform(platformStartX + i * platformSize, platformY, platformSize));
+  }
 }
 
 function draw() {
@@ -68,17 +78,27 @@ function drawGame(){
   fill(100, 200, 100);
   rect(0, height - groundHeight, width, groundHeight);
   
-  player.update();
-  player.display();
-  
   for(let portal of portals){
     portal.update();
     portal.display();
   }
   
+  player.update();
+  player.display();
+  
   for(let spike of spikes){
     spike.update();
     spike.display();
+  }
+  
+  for(let platform of platforms){
+    platform.update();
+    platform.display();
+  }
+  
+  for(let coin of coins){
+    coin.update();
+    coin.display();
   }
   
   drawHUD();
@@ -92,6 +112,88 @@ function drawGame(){
   }
 }
 
+class Platform{
+  constructor(x, y, size){
+    this.x = x;
+    this.y = y;
+    this.size = size;
+    this.hasCoin = true;
+  }
+  
+  update(){
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y == this.y + this.size && player.velocityY < 0){
+      //player.y = this.y - player.h;
+      player.velocityY = 0;
+    }
+    
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y + player.h == this.y && player.velocityY < 0){
+      //player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+    }
+    
+//    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+ //      player.y + player.h > this.y && player.velocityY > 0){
+   //   player.y = this.y - player.h;
+     // player.velocityY = 0;
+     // player.onGround = true;
+    //}
+    
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       //player.y == this.y + this.size && player.velocityY < 0){
+       player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
+      player.velocityY = 2;
+      if(this.hasCoin){
+        coins.push(new Coin(this.x + this.size / 2, this.y - 10));
+        this.hasCoin = false;
+      }
+    }
+  }
+  
+  display(){
+    fill(150, 75, 0);
+    rect(this.x, this.y, this.size, this.size);
+  }
+}
+
+class Coin{
+  constructor(x, y){
+    this.x = x;
+    this.y = y;
+    this.size = 15;
+    this.collected = false;
+    this.velocityY = -2;
+    this.gravity = 0.2;
+  }
+  
+  update(){
+    this.velocityY += this.gravity;
+    this.y += this.velocityY;
+    
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y + player.h > this.y && player.y < this.y + this.size &&
+       !this.collected){
+      this.collected = true;
+      goldCoins += 1;
+      exp += 1;
+      
+      let index = coins.indexOf(this);
+      if(index > -1){
+        coins.splice(index, 1);
+      }
+    }
+  }
+  
+  display(){
+    if(!this.collected){
+      fill("gold");
+      ellipse(this.x, this.y, this.size);
+    }
+  }
+}
+
 class Spike{
   constructor(x, y, w){
     this.x = x;
@@ -102,12 +204,14 @@ class Spike{
   }
   
   update(){
-    if(dist(player.x, player.y, this.x + this.w / 2, this.y) < 30){
+    if(dist(player.x + 20, player.y + 30, this.x + this.w / 2, this.y) < 70){
       this.visible = true;
     }
     
     if(this.visible && this.isCollidingWithPlayer()){
       respawnPlayer();
+      this.visible = false;
+      exp = 0;
     }
   }
   
@@ -219,8 +323,8 @@ class Player{
   constructor(x, y){
     this.x = x;
     this.y = y;
-    this.w = 40;
-    this.h = 60;
+    this.w = 25;
+    this.h = 40;
     this.speed = 3;
     this.gravity = 0.5;
     this.jumpPower = -Math.sqrt(2 * this.gravity * 150);
