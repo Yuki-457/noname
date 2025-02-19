@@ -122,14 +122,14 @@ class Platform{
   
   update(){
     if(player.x + player.w > this.x && player.x < this.x + this.size &&
-       player.y == this.y + this.size && player.velocityY < 0){
+       player.y - player.velocityY < this.y + this.size && player.velocityY < 0){
       //player.y = this.y - player.h;
-      player.velocityY = 0;
+      player.velocityY = 2;
     }
     
     if(player.x + player.w > this.x && player.x < this.x + this.size &&
-       player.y + player.h == this.y && player.velocityY < 0){
-      //player.y = this.y - player.h;
+       player.y + player.h >= this.y && player.velocityY > 0){
+      player.y = this.y - player.h;
       player.velocityY = 0;
       player.onGround = true;
     }
@@ -165,7 +165,7 @@ class Coin{
     this.size = 15;
     this.collected = false;
     this.velocityY = -2;
-    this.gravity = 0.2;
+    this.gravity = 0.5;
   }
   
   update(){
