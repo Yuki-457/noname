@@ -20,11 +20,15 @@ let spikes = [];
 let currentSpawnPoint = null;
 let platforms = [];
 let coins = [];
+let enemies = [];
+let scenes = [];
+let maxScenes = 3;
 
 function setup() {
   createCanvas(800, 600);
   textAlign(CENTER, CENTER);
   titleY = height / 4;//设置标题位置
+  sceneIndex = 0;
   
   let startY = height / 2;
   
@@ -35,17 +39,25 @@ function setup() {
   //按钮位置
   
   player = new Player(50, height - groundHeight - 40);
-  portals.push(new Portal(100, height - groundHeight - 60));
-  currentSpawnPoint = {x: 100, y: height - groundHeight - 50};
-  spikes.push(new Spike(250, height - groundHeight, 50));
+  //portals.push(new Portal(100, height - groundHeight - 60));
+  //currentSpawnPoint = {x: 100, y: height - groundHeight - 50};
+  //spikes.push(new Spike(250, height - groundHeight, 50));
   
-  let platformStartX = 450;
-  let platformY = height - groundHeight - 130;
-  let platformSize = 30;
-  
-  for(let i = 0; i < 4; i++){
-    platforms.push(new Platform(platformStartX + i * platformSize, platformY, platformSize));
+  for(let i = 0; i < maxScenes; i++){
+    scenes.push(new Scene());
   }
+  
+  scenes[0].addPlatform(450, height - groundHeight - 130, 30);
+  scenes[0].addPlatform(480, height - groundHeight - 130, 30);
+  scenes[0].addPlatform(510, height - groundHeight - 130, 30);
+  scenes[0].addPlatform(540, height - groundHeight - 130, 30);
+  scenes[0].addEnemy(400, height - groundHeight - 25, 25, 25, 2, 400, 700);
+  scenes[0].addSpike(250, height - groundHeight, 50);
+  //scenes[0].addCoin(460, height - groundHeight - 160);
+  
+  let portal1 = scenes[0].addPortal(100, height - groundHeight - 60);
+  lastCheckPoint = { x: portal1.x, y: portal1.y, scene: 0 };
+  
 }
 
 function draw() {
@@ -78,18 +90,18 @@ function drawGame(){
   fill(100, 200, 100);
   rect(0, height - groundHeight, width, groundHeight);
   
-  for(let portal of portals){
-    portal.update();
-    portal.display();
-  }
+  //for(let portal of portals){
+    //portal.update();
+   // portal.display();
+  //}
   
-  player.update();
-  player.display();
   
-  for(let spike of spikes){
+  
+  /*for(let spike of spikes){
     spike.update();
     spike.display();
   }
+  
   
   for(let platform of platforms){
     platform.update();
@@ -101,6 +113,17 @@ function drawGame(){
     coin.display();
   }
   
+  for(let enemy of enemies){
+    enemy.update();
+    enemy.display();
+  }
+  
+  */
+  
+  scenes[sceneIndex].update();
+  scenes[sceneIndex].display();
+  player.update();
+  player.display();
   drawHUD();
   
   //fill(0);
@@ -122,13 +145,20 @@ class Platform{
   
   update(){
     if(player.x + player.w > this.x && player.x < this.x + this.size &&
-       player.y - player.velocityY < this.y + this.size && player.velocityY < 0){
-      //player.y = this.y - player.h;
-      player.velocityY = 2;
+       //player.y == this.y + this.size && player.velocityY < 0){
+       //player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
+       player.y <= this.y + this.size && player.y >= this.y && player.velocityY < 0){
+      player.velocityY = 0;
+      if(this.hasCoin){
+        let newCoin = new Coin(this.x + this.size / 2, this.y - 10);
+        scenes[sceneIndex].coins.push(new Coin(this.x + this.size / 2, this.y - 10));
+        this.hasCoin = false;
+      }
     }
     
     if(player.x + player.w > this.x && player.x < this.x + this.size &&
-       player.y + player.h >= this.y && player.velocityY > 0){
+       player.y + player.h >= this.y && player.y + player.h - player.velocityY < this.y + 5 &&
+       player.velocityY > 0){
       player.y = this.y - player.h;
       player.velocityY = 0;
       player.onGround = true;
@@ -141,15 +171,7 @@ class Platform{
      // player.onGround = true;
     //}
     
-    if(player.x + player.w > this.x && player.x < this.x + this.size &&
-       //player.y == this.y + this.size && player.velocityY < 0){
-       player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
-      player.velocityY = 2;
-      if(this.hasCoin){
-        coins.push(new Coin(this.x + this.size / 2, this.y - 10));
-        this.hasCoin = false;
-      }
-    }
+    
   }
   
   display(){
@@ -211,7 +233,7 @@ class Spike{
     if(this.visible && this.isCollidingWithPlayer()){
       respawnPlayer();
       this.visible = false;
-      exp = 0;
+      
     }
   }
   
@@ -229,8 +251,35 @@ class Spike{
 }
 
 function respawnPlayer(){
-  player.x = currentSpawnPoint.x;
-  player.y = currentSpawnPoint.y;
+  if(lastCheckPoint){
+    sceneIndex = lastCheckPoint.scene;
+    player.x = lastCheckPoint.x;
+    player.y = lastCheckPoint.y;
+    
+  }
+  else{
+    sceneIndex = 0;
+    player.x = 50;
+    player.y = height - groundHeight - 40;
+  }
+    
+  exp = 0;
+  
+  let scene = scenes[sceneIndex];
+  scene.coins = [];
+  
+  for(let spike of scene.spikes){
+    spike.visible = false;
+  }
+  for(let platform of platforms){
+    platform.hasCoin = true;
+    //scene.coins.push(new Coin(platform.x + platform.size / 2, platform.y - 10));
+  }
+  
+  
+  //scene.enemies = [];
+  //scene.spikes = [];
+  setupNextScene();
 }
 
 function drawPortalSelection(){
@@ -281,13 +330,12 @@ class Portal{
       unlockedPortals.push(this);
       goldCoins += 5;
       exp += 5;
-      currentSpawnPoint = { x: this.x, y: this.y};
+      lastCheckPoint = { x: this.x, y: this.y, scene: sceneIndex };
     }
     
     if(this.unlocked && this.isCollidingWithPlayer() && keyIsDown(controls.use.charCodeAt(0))){
-      if(unlockedPortals.length > 1){
-        isChoosingPortal = true;
-        selectedPortalIndex = 0;
+      if(lastCheckPoint){
+        teleport(lastCheckPoint);
       }
     }
   }
@@ -364,7 +412,25 @@ class Player{
       this.hasDoubleJumped = false;
     }
     
-    this.x = constrain(this.x, 0, width - this.w);
+    this.checkSceneTransition();
+    
+    this.x = constrain(this.x, 0 - this.w / 2, width - this.w / 2);
+  }
+  
+  checkSceneTransition(){
+    let centerX = this.x + this.w / 2;
+    
+    if(centerX >= width && sceneIndex < maxScenes - 1){
+      sceneIndex++;
+      this.x = this.w / 2;
+      setupNextScene();
+    }
+    
+    if(centerX <= 0 && sceneIndex > 0){
+      sceneIndex--;
+      this.x = width - this.w / 2;
+      setupNextScene();
+    }
   }
   
   display(){
@@ -503,5 +569,99 @@ class Button{
     if(this.isHovered()){
       this.action();
     }
+  }
+}
+
+class Enemy{
+  constructor(x, y, w, h, speed, minX, maxX){
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+    this.speed = speed;
+    this.minX = minX;
+    this.maxX = maxX;
+    this.direction = 1;
+  }
+  
+  update(){
+    this.x += this.speed * this.direction;
+    
+    if(this.x >= this.maxX || this.x <= this.minX){
+      this.direction *= -1;
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    fill(0, 200, 0);
+    rect(this.x, this.y, this.w, this.h);
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.w && player.x + player.w > this.x &&
+           player.y < this.y + this.h && player.y + player.h > this.y);
+  }
+}
+
+function setupNextScene(){
+  console.log(`Switch to Scene ${sceneIndex}`);
+  
+  spikes = scenes[sceneIndex].spikes;
+  enemies = scenes[sceneIndex].enemies;
+  platforms = scenes[sceneIndex].platforms;
+  coins = scenes[sceneIndex].coins;
+  portals = scenes[sceneIndex].portals;
+  
+}
+
+class Scene{
+  constructor(){
+    this.platforms = [];
+    this.coins = [];
+    this.spikes = [];
+    this.enemies = [];
+    this.portals = [];
+  }
+  
+  addPlatform(x, y, size){
+    this.platforms.push(new Platform(x, y, size));
+  }
+  
+  addCoin(x, y){
+    this.coins.push(new Coin(x, y));
+  }
+  
+  addSpike(x, y, w){
+    this.spikes.push(new Spike(x, y, w));
+  }
+  
+  addEnemy(x, y, w, h, speed, minX, maxX){
+    this.enemies.push(new Enemy(x, y, w, h, speed, minX, maxX));
+  }
+  
+  addPortal(x, y){
+    let portal = new Portal(x, y);
+    this.portals.push(portal);
+    return portal;
+  }
+  
+  update(){
+    for(let platform of this.platforms) platform.update();
+    for(let coin of this.coins) coin.update();
+    for(let spike of this.spikes) spike.update();
+    for(let enemy of this.enemies) enemy.update();
+    for(let portal of this.portals) portal.update();
+  }
+  
+  display(){
+    for(let platform of this.platforms) platform.display();
+    for(let coin of this.coins) coin.display();
+    for(let spike of this.spikes) spike.display();
+    for(let enemy of this.enemies) enemy.display();
+    for(let portal of this.portals) portal.display();
   }
 }
