@@ -47,10 +47,10 @@ function setup() {
     scenes.push(new Scene());
   }
   
-  scenes[0].addPlatform(450, height - groundHeight - 130, 30);
-  scenes[0].addPlatform(480, height - groundHeight - 130, 30);
-  scenes[0].addPlatform(510, height - groundHeight - 130, 30);
-  scenes[0].addPlatform(540, height - groundHeight - 130, 30);
+  scenes[0].addPlatform(450, height - groundHeight - 130, 30, true);
+  scenes[0].addPlatform(480, height - groundHeight - 130, 30, true);
+  scenes[0].addPlatform(510, height - groundHeight - 130, 30, true);
+  scenes[0].addPlatform(540, height - groundHeight - 130, 30, true);
   scenes[0].addEnemy(400, height - groundHeight - 25, 25, 25, 2, 400, 700);
   scenes[0].addSpike(250, height - groundHeight, 50);
   //scenes[0].addCoin(460, height - groundHeight - 160);
@@ -58,6 +58,39 @@ function setup() {
   let portal1 = scenes[0].addPortal(100, height - groundHeight - 60);
   lastCheckPoint = { x: portal1.x, y: portal1.y, scene: 0 };
   
+  scenes[1].addCliff(150, 200);
+  scenes[1].addCliff(250, 300);
+  
+  scenes[1].addTurret(165, height - 20);
+  scenes[1].addTurret(265, height - 20);
+  
+  for(let x = 150; x <= 300; x += 30){
+    scenes[1].addPlatform(x, height - groundHeight - 240, 30, false);
+  }
+  
+  for(let x = 150; x <= 300; x += 30){
+    scenes[1].addCoin(x + 15, height - groundHeight - 270, false);
+  }
+  
+  for(let i = 0; i < 4; i++){
+    scenes[1].addPlatform(450 + i * 30, height - groundHeight - 100, 30, false);
+    scenes[1].addPlatform(450 + i * 30, height - groundHeight - 220, 30, false);
+  }
+  
+  for(let i = 0; i < 5; i++){
+    scenes[1].addPlatform(450, height - groundHeight -(100 + i * 30), 30, false);
+    scenes[1].addPlatform(540, height - groundHeight -(100 + i * 30), 30, false);
+  }
+  
+  for(let i = 1; i < 3; i++){
+    for(let j = 0; j < 3; j++){
+      scenes[1].addCoin(450 + i * 30 + 15, height - groundHeight -(100 + j * 30 + 15), false);
+    }
+  }
+  
+  for(let i = 0; i < 4; i++){
+    scenes[1].addBreakableBlock(450 + i * 30, 130, 30);
+  }
 }
 
 function draw() {
@@ -88,7 +121,13 @@ function drawMenu(){
 function drawGame(){
   background(135, 206, 250);
   fill(100, 200, 100);
+  noStroke();
   rect(0, height - groundHeight, width, groundHeight);
+  fill(135, 206, 250);
+  for(let cliff of scenes[sceneIndex].cliffs){
+    rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
+  }
+  
   
   //for(let portal of portals){
     //portal.update();
@@ -136,15 +175,15 @@ function drawGame(){
 }
 
 class Platform{
-  constructor(x, y, size){
+  constructor(x, y, size, hasCoin = true){
     this.x = x;
     this.y = y;
     this.size = size;
-    this.hasCoin = true;
+    this.hasCoin = hasCoin;
   }
   
   update(){
-    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+/*    if(player.x + player.w > this.x && player.x < this.x + this.size &&
        //player.y == this.y + this.size && player.velocityY < 0){
        //player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
        player.y <= this.y + this.size && player.y >= this.y && player.velocityY < 0){
@@ -170,8 +209,41 @@ class Platform{
      // player.velocityY = 0;
      // player.onGround = true;
     //}
+*/    
+    if (player.x + player.w > this.x && player.x < this.x + this.size &&
+        player.y + player.h > this.y && player.y < this.y + this.size &&
+        player.velocityY < 0) {
+      player.y = this.y + this.size;
+      player.velocityY = 0;
+      
+      if (this.hasCoin) {
+        scenes[sceneIndex].coins.push(new Coin(this.x + this.size / 2, this.y - 10));
+        this.hasCoin = false;
+      }
+      return; 
+    }
     
+    if (player.x + player.w > this.x && player.x < this.x + this.size &&
+        player.y + player.h >= this.y && player.y + player.h - player.velocityY < this.y + 5 &&
+        player.velocityY > 0) {
+      player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+      return;
+    }
     
+    if (player.y + player.h > this.y + 5 && player.y < this.y + this.size - 5) {
+      // **人物从右侧撞到方块**
+      if (player.x + player.w >= this.x && player.x + player.w - player.speed < this.x) {
+        player.x = this.x - player.w;
+        player.velocityX = 0;
+      }
+      // **人物从左侧撞到方块**
+      if (player.x <= this.x + this.sizet && player.x + player.speed > this.x + this.size) {
+        player.x = this.x + this.size;
+        player.velocityX = 0;
+      }
+    }
   }
   
   display(){
@@ -181,18 +253,21 @@ class Platform{
 }
 
 class Coin{
-  constructor(x, y){
+  constructor(x, y, hasGravity = true){
     this.x = x;
     this.y = y;
     this.size = 15;
     this.collected = false;
-    this.velocityY = -2;
-    this.gravity = 0.5;
+    this.hasGravity = hasGravity;
+    this.velocityY = hasGravity ? -2 : 0;
+    this.gravity = hasGravity ? 0.5 : 0;
   }
   
   update(){
-    this.velocityY += this.gravity;
-    this.y += this.velocityY;
+    if(this.hasGravity){
+      this.velocityY += this.gravity;
+      this.y += this.velocityY;
+    }
     
     if(player.x + player.w > this.x && player.x < this.x + this.size &&
        player.y + player.h > this.y && player.y < this.y + this.size &&
@@ -201,9 +276,9 @@ class Coin{
       goldCoins += 1;
       exp += 1;
       
-      let index = coins.indexOf(this);
+      let index = scenes[sceneIndex].coins.indexOf(this);
       if(index > -1){
-        coins.splice(index, 1);
+        scenes[sceneIndex].coins.splice(index, 1);
       }
     }
   }
@@ -266,6 +341,10 @@ function respawnPlayer(){
   exp = 0;
   
   let scene = scenes[sceneIndex];
+  
+  for(let coin of scene.coins){
+    coin.collected = false;
+  }
   scene.coins = [];
   
   for(let spike of scene.spikes){
@@ -364,6 +443,7 @@ function collection(){
   if(exp >= 10){
     exp = 0;
     level += 1;
+    gameState = "upgrade";
   }
 }
 
@@ -402,14 +482,24 @@ class Player{
       }
     }
     
-    this.velocityY += this.gravity;
+    checkFallDeath();
+    
+    if(!this.onGround){
+      this.velocityY += this.gravity;
+    }
+    
     this.y += this.velocityY;
     
-    if(this.y >= height - groundHeight - this.h){
+    
+     
+    if(!isPlayerOverCliff() && this.y >= height - groundHeight - this.h){
       this.y = height - groundHeight - this.h;
       this.velocityY = 0;
       this.onGround = true;
       this.hasDoubleJumped = false;
+    }
+    else{
+      this.onGround = false;
     }
     
     this.checkSceneTransition();
@@ -625,14 +715,18 @@ class Scene{
     this.spikes = [];
     this.enemies = [];
     this.portals = [];
+    this.turrets = [];
+    this.bullets = [];
+    this.cliffs = [];
+    this.breakableBlocks = [];
   }
   
   addPlatform(x, y, size){
     this.platforms.push(new Platform(x, y, size));
   }
   
-  addCoin(x, y){
-    this.coins.push(new Coin(x, y));
+  addCoin(x, y, hasGravity = true){
+    this.coins.push(new Coin(x, y, hasGravity));
   }
   
   addSpike(x, y, w){
@@ -649,12 +743,31 @@ class Scene{
     return portal;
   }
   
+  addTurret(x, y){
+    this.turrets.push(new Turret(x, y));
+  }
+  
+  addBullet(x, y, speed){
+    this.bullets.push(new Bullet(x, y, speed));
+  }
+  
+  addCliff(startX, endX){
+    this.cliffs.push({ startX, endX });
+  }
+  
+  addBreakableBlock(x, y, size){
+    this.breakableBlocks.push(new BreakableBlock(x, y, size));
+  }
+  
   update(){
     for(let platform of this.platforms) platform.update();
     for(let coin of this.coins) coin.update();
     for(let spike of this.spikes) spike.update();
     for(let enemy of this.enemies) enemy.update();
     for(let portal of this.portals) portal.update();
+    for(let turret of this.turrets) turret.update();
+    for(let bullet of this.bullets) bullet.update();
+    for(let block of this.breakableBlocks) block.update();
   }
   
   display(){
@@ -663,5 +776,130 @@ class Scene{
     for(let spike of this.spikes) spike.display();
     for(let enemy of this.enemies) enemy.display();
     for(let portal of this.portals) portal.display();
+    for(let turret of this.turrets) turret.display();
+    for(let bullet of this.bullets) bullet.display();
+    for(let block of this.breakableBlocks) block.display();
   }
+}
+
+class Turret{
+  constructor(x, y){
+    this.x = x;
+    this.y = y;
+    this.fireRate = 60;
+    this.timer = 0;
+  }
+  
+  update(){
+    this.timer++;
+    if(this.timer >= this.fireRate){
+      scenes[sceneIndex].bullets.push(new Bullet(this.x + 10, this.y, -2));
+      this.timer = 0;
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    fill(255, 0, 0);
+    rect(this.x, this.y, 20, 20);
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + 20 && player.x + player.w > this.x &&
+           player.y < this.y + 20 && player.y + player.h > this.y);
+  }
+}
+
+class Bullet{
+  constructor(x, y, speed){
+    this.x = x;
+    this.y = y;
+    this.speed = speed;
+    this.size = 10;
+  }
+  
+  update(){
+    this.y += this.speed;
+    if(this.y < 0){
+      let index = scenes[sceneIndex].bullets.indexOf(this);
+      if(index > -1){
+        scenes[sceneIndex].bullets.splice(index, 1);
+      }
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    fill(255, 255, 0);
+    ellipse(this.x, this.y, this.size);
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.size && player.x + player.w > this.x &&
+           player.y < this.y + this.size && player.y + player.h > this.y);
+  }
+}
+
+class BreakableBlock{
+  constructor(x, y, size){
+    this.x = x;
+    this.y = y;
+    this.size = size;
+    this.exists = true;
+  }
+  
+  update(){
+    if(!this.exists) return;
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
+      this.exists = false;
+      player.velocityY = 0;
+      return;
+    }
+    
+    if (player.y + player.h > this.y && player.y < this.y + this.size) {
+      if (player.x + player.w > this.x && player.x < this.x + 5) {
+        player.x = this.x - player.w;
+      }
+      if (player.x < this.x + this.size && player.x + player.w > this.x + this.size - 5) {
+        player.x = this.x + this.size;
+      }
+    }
+  }
+  
+  display(){
+    if(!this.exists) return;
+    fill(150, 75, 0);
+    rect(this.x, this.y, this.size, this.size);
+  }
+}
+
+function checkFallDeath(){
+  let isOverCliff = false;
+  for(let cliff of scenes[sceneIndex].cliffs){
+    if(player.x > cliff.startX && player.x + player.w < cliff.endX){
+      isOverCliff = true;
+      break;
+    }
+  }
+  
+  if(isOverCliff && player.onGround){
+    player.onGround =  false;
+    player.velocityY = 0;
+  }
+}
+
+function isPlayerOverCliff(){
+  for(let cliff of scenes[sceneIndex].cliffs){
+    if(player.x > cliff.startX && player.x + player.w < cliff.endX){
+      return true;
+    }
+  }
+  return false;
 }
