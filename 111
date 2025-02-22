@@ -210,6 +210,23 @@ class Platform{
      // player.onGround = true;
     //}
 */    
+    let hasBlockAbove = scenes[sceneIndex].platforms.some(platform => 
+      platform.x === this.x && platform.y === this.y - this.size
+    );
+    
+    if (player.y + player.h > this.y && player.y < this.y + this.size) {
+      // **人物从右侧撞到方块**
+      if (player.velocityX > 0 && player.x + player.w >= this.x && player.x + player.w - player.speed < this.x) {
+        player.x = this.x - player.w;
+        player.velocityX = 0;
+      }
+      // **人物从左侧撞到方块**
+      if (player.velocityX < 0 && player.x <= this.x + this.size && player.x + player.speed > this.x + this.size) {
+        player.x = this.x + this.size;
+        player.velocityX = 0;
+      }
+    }
+    
     if (player.x + player.w > this.x && player.x < this.x + this.size &&
         player.y + player.h > this.y && player.y < this.y + this.size &&
         player.velocityY < 0) {
@@ -223,7 +240,7 @@ class Platform{
       return; 
     }
     
-    if (player.x + player.w > this.x && player.x < this.x + this.size &&
+    if (!hasBlockAbove && player.x + player.w > this.x && player.x < this.x + this.size &&
         player.y + player.h >= this.y && player.y + player.h - player.velocityY < this.y + 5 &&
         player.velocityY > 0) {
       player.y = this.y - player.h;
@@ -232,18 +249,7 @@ class Platform{
       return;
     }
     
-    if (player.y + player.h > this.y + 5 && player.y < this.y + this.size - 5) {
-      // **人物从右侧撞到方块**
-      if (player.x + player.w >= this.x && player.x + player.w - player.speed < this.x) {
-        player.x = this.x - player.w;
-        player.velocityX = 0;
-      }
-      // **人物从左侧撞到方块**
-      if (player.x <= this.x + this.sizet && player.x + player.speed > this.x + this.size) {
-        player.x = this.x + this.size;
-        player.velocityX = 0;
-      }
-    }
+    
   }
   
   display(){
