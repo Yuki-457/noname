@@ -1,0 +1,12 @@
+function preload() {
+img = loadImage('https://raw.githubusercontent.com/Yuki-457/noname/main/images/bg.JPG');
+}
+
+原網址 https://github.com/Yuki-457/noname/blob/main/images/BACKGROUND.JPG?raw=true
+改成 https://raw.githubusercontent.com/Yuki-457/noname/main/images/bg.JPG
+
+function setup() {
+img.resize(800, 600);
+
+function drawGame(){
+  image(img, 0, 0);
