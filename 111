@@ -1,3 +1,5 @@
+let bgImage, blockImage, spikeImage, playerImage, groundImage, portalImgClosed, portalImgOpened, playerImg1, playerImg2, pipeImg;
+
 let buttons = [];
 let gameState = "menu";
 let volume = 5;
@@ -43,7 +45,7 @@ function setup() {
   //currentSpawnPoint = {x: 100, y: height - groundHeight - 50};
   //spikes.push(new Spike(250, height - groundHeight, 50));
   
-  for(let i = 0; i < maxScenes; i++){
+  for(let i = 0; i <= maxScenes; i++){
     scenes.push(new Scene());
   }
   
@@ -91,6 +93,8 @@ function setup() {
   for(let i = 0; i < 4; i++){
     scenes[1].addBreakableBlock(450 + i * 30, 130, 30);
   }
+  
+  scenes[1].addPipe(650, height - groundHeight - 110, 75, 110);
 }
 
 function draw() {
@@ -119,11 +123,14 @@ function drawMenu(){
 }
 
 function drawGame(){
-  background(135, 206, 250);
-  fill(100, 200, 100);
+  image(bgImage, 0, 0, width, height);
+  
+  
   noStroke();
+  image(groundImage, 0, height - groundHeight, width, groundHeight)
+  
   rect(0, height - groundHeight, width, groundHeight);
-  fill(135, 206, 250);
+  fill(90, 194, 108);
   for(let cliff of scenes[sceneIndex].cliffs){
     rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
   }
@@ -174,48 +181,49 @@ function drawGame(){
   }
 }
 
-class Platform {
-  constructor(x, y, size, hasCoin = true) {
+class Platform{
+  constructor(x, y, size, hasCoin = true){
     this.x = x;
-    this.y = y;
+    this.y = y + 14;
     this.size = size;
     this.hasCoin = hasCoin;
   }
-
-  update() {
-    let hasBlockAbove = scenes[sceneIndex].platforms.some(platform =>
-      platform.x === this.x && platform.y === this.y - this.size
-    );
-
-    // **顶部碰撞检测（防止人物掉下去）**
-    if (player.x + player.w > this.x && player.x < this.x + this.size &&
-        player.y + player.h > this.y && player.prevY + player.h <= this.y &&
-        player.velocityY > 0) {
-      player.y = this.y - player.h;
+  
+  update(){
+/*    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       //player.y == this.y + this.size && player.velocityY < 0){
+       //player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
+       player.y <= this.y + this.size && player.y >= this.y && player.velocityY < 0){
       player.velocityY = 0;
-      player.onGround = true;
-      return;
-    }
-
-    // **人物头部撞击方块（防止人物跳跃穿过方块）**
-    if (player.x + player.w > this.x && player.x < this.x + this.size &&
-        player.y < this.y + this.size && player.prevY >= this.y + this.size &&
-        player.velocityY < 0) {
-      player.y = this.y + this.size;
-      player.velocityY = 0;
-
-      if (this.hasCoin) {
+      if(this.hasCoin){
+        let newCoin = new Coin(this.x + this.size / 2, this.y - 10);
         scenes[sceneIndex].coins.push(new Coin(this.x + this.size / 2, this.y - 10));
         this.hasCoin = false;
       }
-      return;
     }
-
-    // **左右侧碰撞检测（防止人物穿墙）**
+    
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y + player.h >= this.y && player.y + player.h - player.velocityY < this.y + 5 &&
+       player.velocityY > 0){
+      player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+    }
+    
+//    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+ //      player.y + player.h > this.y && player.velocityY > 0){
+   //   player.y = this.y - player.h;
+     // player.velocityY = 0;
+     // player.onGround = true;
+    //}
+*/    
+    let hasBlockAbove = scenes[sceneIndex].platforms.some(platform => 
+      platform.x === this.x && platform.y === this.y - this.size
+    );
+    
     if (player.y + player.h > this.y && player.y < this.y + this.size) {
-      let nextX = player.x + player.velocityX; // 预测下一帧 X 位置
-
       // **人物从右侧撞到方块**
+      let nextX = player.x + player.velocityX; // 预测下一帧 X 位置
       if (player.velocityX > 0 && player.prevX + player.w <= this.x && nextX + player.w > this.x) {
         player.x = this.x - player.w;
         player.velocityX = 0;
@@ -226,20 +234,41 @@ class Platform {
         player.velocityX = 0;
       }
     }
+    
+    if (player.x + player.w > this.x && player.x < this.x + this.size &&
+        player.y < this.y + this.size && player.prevY >= this.y + this.size &&
+        player.velocityY < 0) {
+      player.y = this.y + this.size;
+      player.velocityY = 0;
+      
+      if (this.hasCoin) {
+        scenes[sceneIndex].coins.push(new Coin(this.x + this.size / 2, this.y - 10));
+        this.hasCoin = false;
+      }
+      return; 
+    }
+    
+    if (!hasBlockAbove && player.x + player.w > this.x && player.x < this.x + this.size &&
+        player.y + player.h > this.y && player.prevY + player.h <= this.y &&
+        player.velocityY > 0) {
+      player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+      return;
+    }
+    
+    
   }
-
-  display() {
-    fill(150, 75, 0);
-    rect(this.x, this.y, this.size, this.size);
+  
+  display(){
+    image(blockImage, this.x, this.y, this.size, this.size);
   }
 }
-
-
 
 class Coin{
   constructor(x, y, hasGravity = true){
     this.x = x;
-    this.y = y;
+    this.y = y + 14;
     this.size = 15;
     this.collected = false;
     this.hasGravity = hasGravity;
@@ -278,7 +307,7 @@ class Coin{
 class Spike{
   constructor(x, y, w){
     this.x = x;
-    this.y = height - groundHeight;
+    this.y = height - groundHeight + 14;
     this.w = w;
     this.h = 15;
     this.visible = false;
@@ -298,8 +327,8 @@ class Spike{
   
   display(){
     if(this.visible){
-      fill(200, 0, 0);
-      triangle(this.x, this.y, this.x + this.w / 2, this.y - this.h, this.x + this.w, this.y);
+      image(spikeImage, this.x, this.y - this.h, this.w, this.h);
+      //triangle(this.x, this.y, this.x + this.w / 2, this.y - this.h, this.x + this.w, this.y);
     }
   }
   
@@ -381,7 +410,7 @@ function drawHUD(){
 class Portal{
   constructor(x, y){
     this.x = x;
-    this.y = y;
+    this.y = y + 14;
     this.w = 60;
     this.h = 60;
     this.unlocked = false;
@@ -404,8 +433,12 @@ class Portal{
   }
   
   display(){
-    fill(this.unlocked ? "blue" : "gray");
-    rect(this.x, this.y, this.w, this.h);
+    if(this.unlocked){
+      image(portalImgOpened, this.x, this.y, this.w, this.h);
+    }
+    else{
+      image(portalImgClosed, this.x, this.y, this.w, this.h);
+    }
   }
   
   isCollidingWithPlayer(){
@@ -431,61 +464,69 @@ function collection(){
   }
 }
 
-class Player {
-  constructor(x, y) {
+class Player{
+  constructor(x, y){
     this.x = x;
-    this.y = y;
+    this.y = y + 14;
     this.w = 25;
     this.h = 40;
     this.speed = 3;
     this.gravity = 0.5;
     this.jumpPower = -Math.sqrt(2 * this.gravity * 150);
-    this.velocityX = 0;  // 用于存储 X 轴的速度
-    this.velocityY = 0;  // 用于存储 Y 轴的速度
+    this.velocityX = 0;
+    this.velocityY = 0;
     this.onGround = false;
     this.canDoubleJump = false;
     this.hasDoubleJumped = false;
+    
+    this.facingRight = true;
+    this.frameCounter = 0;
+    this.imageIndex = 0;
   }
-
-  update() {
-    this.prevX = this.x; // 记录上一帧的 X 坐标
-    this.prevY = this.y; // 记录上一帧的 Y 坐标
-
-    this.velocityX = 0; // 每帧重置水平速度
-
-    if (keyIsDown(controls.left.charCodeAt(0))) {
+  
+  update(){
+    this.prevX = this.x;
+    this.prevY = this.y;
+    
+    let moving = false;
+    this.velocityX = 0;
+    
+    if(keyIsDown(controls.left.charCodeAt(0))){
       this.velocityX = -this.speed;
+      this.facingRight = false;
+      moving = true;
     }
-    if (keyIsDown(controls.right.charCodeAt(0))) {
+    if(keyIsDown(controls.right.charCodeAt(0))){
       this.velocityX = this.speed;
+      this.facingRight = true;
+      moving = true;
     }
-
-    if (keyIsDown(controls.jump.charCodeAt(0))) {
-      if (this.onGround) {
+    
+    if(keyIsDown(controls.jump.charCodeAt(0))){
+      if(this.onGround){
         this.velocityY = this.jumpPower;
         this.onGround = false;
-        this.hasDoubleJumped = false;
-      } 
-      else if (this.canDoubleJump && !this.hasDoubleJumped) {
+        this.hasDoubleJumpes = false;
+      }
+      else if(this.canDoubleJump && !this.hasDoubleJumped){
         this.velocityY = this.jumpPower * 0.9;
         this.hasDoubleJumped = true;
       }
     }
-
+    
     checkFallDeath();
-
-    if (!this.onGround) {
-      this.velocityY += this.gravity;  // 施加重力
+    
+    if(!this.onGround){
+      this.velocityY += this.gravity;
     }
-
-    // **更新 X 位置并进行碰撞检测**
+    
     this.x += this.velocityX;
-
-    // **更新 Y 位置**
     this.y += this.velocityY;
-
-    if (!isPlayerOverCliff() && this.y >= height - groundHeight - this.h) {
-      this.y = height - groundHeight - this.h;
+    
+    
+     
+    if (!isPlayerOverCliff() && this.y >= height - groundHeight + 14 - this.h) {
+      this.y = height - groundHeight + 14 - this.h;
       this.velocityY = 0;
       this.onGround = true;
       this.hasDoubleJumped = false;
@@ -494,33 +535,51 @@ class Player {
     }
 
     this.checkSceneTransition();
-
-    // 限制玩家不能超出屏幕
+    
     this.x = constrain(this.x, 0 - this.w / 2, width - this.w / 2);
   }
-
-  checkSceneTransition() {
+  
+  if(moving){
+    this.frameCounter++;
+    if(this.frameCounter >= 10){
+      this.imageIndex = 1 - this.imageIndex;
+      this.frameCounter = 0;
+    }
+    else{
+      this.imageIndex = 0;
+    }
+  }
+  
+  checkSceneTransition(){
     let centerX = this.x + this.w / 2;
-
-    if (centerX >= width && sceneIndex < maxScenes - 1) {
+    
+    if(centerX >= width && sceneIndex < maxScenes - 1){
       sceneIndex++;
       this.x = this.w / 2;
       setupNextScene();
     }
-
-    if (centerX <= 0 && sceneIndex > 0) {
+    
+    if(centerX <= 0 && sceneIndex > 0){
       sceneIndex--;
       this.x = width - this.w / 2;
       setupNextScene();
     }
   }
-
-  display() {
-    fill(255, 0, 0);
-    rect(this.x, this.y, this.w, this.h);
+  
+  display(){
+    let imgToShow = this.imageIndex === 0 ? playerImg1 : playerImg2;
+    
+    if(!this.facingRight){
+      push();
+      scale(-1, 1);
+      image(imgToShow, -this.x - this.w, this.y, this.w, this.h);
+      pop();
+    }
+    else{
+      image(imgToShow, this.x, this.y, this.w, this.h);
+    }
   }
 }
-
 
 function drawSettings(){
   fill(50);
@@ -658,7 +717,7 @@ class Button{
 class Enemy{
   constructor(x, y, w, h, speed, minX, maxX){
     this.x = x;
-    this.y = y;
+    this.y = y + 12;
     this.w = w;
     this.h = h;
     this.speed = speed;
@@ -699,6 +758,9 @@ function setupNextScene(){
   coins = scenes[sceneIndex].coins;
   portals = scenes[sceneIndex].portals;
   
+  if (sceneIndex === maxScenes) {
+  background(135, 206, 250); // 先用主关卡背景，之后可以修改
+}
 }
 
 class Scene{
@@ -712,6 +774,7 @@ class Scene{
     this.bullets = [];
     this.cliffs = [];
     this.breakableBlocks = [];
+    this.pipes = [];
   }
   
   addPlatform(x, y, size){
@@ -752,6 +815,10 @@ class Scene{
     this.breakableBlocks.push(new BreakableBlock(x, y, size));
   }
   
+  addPipe(x, y, w, h){
+    this.pipes.push(new Pipe(x, y, w, h));
+  }
+  
   update(){
     for(let platform of this.platforms) platform.update();
     for(let coin of this.coins) coin.update();
@@ -761,6 +828,7 @@ class Scene{
     for(let turret of this.turrets) turret.update();
     for(let bullet of this.bullets) bullet.update();
     for(let block of this.breakableBlocks) block.update();
+    for(let pipe of this.pipes) pipe.update();
   }
   
   display(){
@@ -772,6 +840,7 @@ class Scene{
     for(let turret of this.turrets) turret.display();
     for(let bullet of this.bullets) bullet.display();
     for(let block of this.breakableBlocks) block.display();
+    for(let pipe of this.pipes) pipe.display();
   }
 }
 
@@ -842,7 +911,7 @@ class Bullet{
 class BreakableBlock{
   constructor(x, y, size){
     this.x = x;
-    this.y = y;
+    this.y = y + 14;
     this.size = size;
     this.exists = true;
   }
@@ -895,4 +964,56 @@ function isPlayerOverCliff(){
     }
   }
   return false;
+}
+
+class Pipe{
+  constructor(x, y, w, h){
+    this.x = x;
+    this.y = y + 14;
+    this.w = w;
+    this.h = h;
+  }
+  
+  update(){
+    if(player.x + player.w > this.x && player.x < this.x + this.w &&
+       player.y + player.h >= this.y && player.y + player.h - player.velocityY < this.y + 5 &&
+       player.velocityY > 0){
+      player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+    }
+    
+    if(player.y + player.h > this.y && player.y < this.y + this.h){
+      if (player.x + player.w > this.x && player.x < this.x + this.w / 2) {
+        player.x = this.x - player.w; // 左侧
+      } else if (player.x < this.x + this.w && player.x + player.w > this.x + this.w / 2) {
+        player.x = this.x + this.w; // 右侧
+      }
+    }
+    
+    if(player.y + player.h === this.y && keyIsDown(controls.use.charCodeAt(0))){
+      enterHiddenLevel();
+    }
+  }
+  
+  display(){
+    image(pipeImg, this.x, this.y, this.w, this.h);
+  }
+}
+
+function enterHiddenLevel(){
+  sceneIndex = maxScenes;
+  setupNextScene();
+}
+
+function preload(){
+  bgImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/BACKGROUND.JPG");
+  blockImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/BRICK1.PNG");
+  groundImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/FLOOR.PNG");
+  spikeImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/SPIKE.PNG");
+  portalImgClosed = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/DOOR2.PNG");
+  portalImgOpened = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/DOOR1.PNG");
+  playerImg1 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/MaleCat1.PNG");
+  playerImg2 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/MaleCat2.PNG");
+  pipeImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/HollowTree.PNG");
 }
