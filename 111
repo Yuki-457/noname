@@ -1,4 +1,4 @@
-let bgImage, blockImage, spikeImage, playerImage, groundImage, portalImgClosed, portalImgOpened, playerImg1, playerImg2, pipeImg;
+let bgImage, blockImage, spikeImage, playerImage, groundImage, portalImgClosed, portalImgOpened, playerImg1, playerImg2, pipeImg, monsterImg1;
 
 let buttons = [];
 let gameState = "menu";
@@ -66,11 +66,11 @@ function setup() {
   scenes[1].addTurret(165, height - 20);
   scenes[1].addTurret(265, height - 20);
   
-  for(let x = 150; x <= 300; x += 30){
+  for(let x = 150; x <= 270; x += 30){
     scenes[1].addPlatform(x, height - groundHeight - 240, 30, false);
   }
   
-  for(let x = 150; x <= 300; x += 30){
+  for(let x = 150; x <= 270; x += 30){
     scenes[1].addCoin(x + 15, height - groundHeight - 270, false);
   }
   
@@ -1016,4 +1016,5 @@ function preload(){
   playerImg1 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/MaleCat1.PNG");
   playerImg2 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/MaleCat2.PNG");
   pipeImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/HollowTree.PNG");
+  monsterImg1 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Monster1.png");
 }
