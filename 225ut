@@ -1,0 +1,67 @@
+class Turret{
+  constructor(x, y){
+    this.x = x;
+    this.y = y;
+    this.fireRate = 60;
+    this.timer = 0;
+    <p style="color:blue;"> this.w = 50; // 砲台的寬度
+    this.h = 50; // 砲台的高度 </p>
+  }
+  
+  update(){
+    this.timer++;
+    if(this.timer >= this.fireRate){
+    <p style="color:blue;">let bulletX = this.x; // 子彈的 X 位置
+    let bulletY = this.y - this.h / 2; // 調高子彈的發射位置
+    scenes[sceneIndex].bullets.push(new Bullet(bulletX, bulletY, -2)); </p>
+      this.timer = 0;
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    <p style="color:blue;">image(turretImg, this.x - this.w / 2, this.y - this.h / 2, this.w, this.h);</p>
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + 20 && player.x + player.w > this.x &&
+           player.y < this.y + 20 && player.y + player.h > this.y);
+  }
+}
+
+class Bullet{
+  constructor(x, y, speed){
+    this.x = x;
+    this.y = y;
+    this.speed = speed;
+    this.size = 10;
+    <p style="color:blue;">this.w = 10; // 子彈的寬度
+    this.h = 15; // 子彈的高度 </p>
+  }
+  
+  update(){
+    this.y += this.speed;
+    if(this.y < 0){
+      let index = scenes[sceneIndex].bullets.indexOf(this);
+      if(index > -1){
+        scenes[sceneIndex].bullets.splice(index, 1);
+      }
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+  image(bulletImg, this.x - this.w / 2, this.y - this.h / 2, this.w, this.h);
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.size && player.x + player.w > this.x &&
+           player.y < this.y + this.size && player.y + player.h > this.y);
+  }
+}
