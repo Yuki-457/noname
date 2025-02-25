@@ -1,19 +1,33 @@
+function setup() {
+  scenes[1].addTurret(175.5, height - 20);
+  scenes[1].addTurret(275.5, height - 20);
+
+function preload(){
+  monsterImg2 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Monster2.png");
+  bulletImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Bullet.PNG");
+  turretImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Turret.PNG");
+
+
+
+
+
+
 class Turret{
   constructor(x, y){
     this.x = x;
     this.y = y;
     this.fireRate = 60;
     this.timer = 0;
-    <p style="color:blue;"> this.w = 50; // 砲台的寬度
-    this.h = 50; // 砲台的高度 </p>
+    this.w = 50; // 砲台的寬度
+    this.h = 50; // 砲台的高度 
   }
   
   update(){
     this.timer++;
     if(this.timer >= this.fireRate){
-    <p style="color:blue;">let bulletX = this.x; // 子彈的 X 位置
-    let bulletY = this.y - this.h / 2; // 調高子彈的發射位置
-    scenes[sceneIndex].bullets.push(new Bullet(bulletX, bulletY, -2)); </p>
+    let bulletX = this.x;               // 子彈的 X 位置
+    let bulletY = this.y - this.h / 2;  // 調高子彈的發射位置
+    scenes[sceneIndex].bullets.push(new Bullet(bulletX, bulletY, -2));  // 套用上面的數值
       this.timer = 0;
     }
     
@@ -23,7 +37,7 @@ class Turret{
   }
   
   display(){
-    <p style="color:blue;">image(turretImg, this.x - this.w / 2, this.y - this.h / 2, this.w, this.h);</p>
+    image(turretImg, this.x - this.w / 2, this.y - this.h / 2, this.w, this.h); //套入圖片
   }
   
   isCollidingWithPlayer(){
@@ -32,14 +46,19 @@ class Turret{
   }
 }
 
+
+
+
+
+
 class Bullet{
   constructor(x, y, speed){
     this.x = x;
     this.y = y;
     this.speed = speed;
     this.size = 10;
-    <p style="color:blue;">this.w = 10; // 子彈的寬度
-    this.h = 15; // 子彈的高度 </p>
+    this.w = 10; // 子彈的寬度
+    this.h = 15; // 子彈的高度 
   }
   
   update(){
@@ -57,7 +76,7 @@ class Bullet{
   }
   
   display(){
-  image(bulletImg, this.x - this.w / 2, this.y - this.h / 2, this.w, this.h);
+  image(bulletImg, this.x - this.w / 2, this.y - this.h / 2, this.w, this.h);   //套入圖片
   }
   
   isCollidingWithPlayer(){
@@ -65,3 +84,27 @@ class Bullet{
            player.y < this.y + this.size && player.y + player.h > this.y);
   }
 }
+
+
+
+
+
+
+
+
+class Enemy{
+  display() {
+    push(); // 開始一個新的變換狀態，避免影響其他物件
+
+    if (this.direction === 1) {
+      translate(this.x + this.w, this.y); // 將畫布平移到正確位置
+      scale(-1, 1); // 水平翻轉
+      image(monsterImg1, 0, 0, this.w, this.h); // 繪製圖片
+    } else {
+      image(monsterImg1, this.x, this.y, this.w, this.h); // 正常顯示
+    }
+
+    pop(); // 恢復畫布狀態，確保不影響其他物件
+  }
+}
+
