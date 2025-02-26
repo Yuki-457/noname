@@ -1,4 +1,4 @@
-let bgImage, blockImage, spikeImage, playerImage, groundImage, portalImgClosed, portalImgOpened, playerImg1, playerImg2, pipeImg, monsterImg1;
+let bgImage, blockImage, spikeImage, playerImage, groundImage, portalImgClosed, portalImgOpened, playerImg1, playerImg2, pipeImg, monsterImg1, bulletImg, turretImg, coinImg;
 
 let buttons = [];
 let gameState = "menu";
@@ -25,6 +25,10 @@ let coins = [];
 let enemies = [];
 let scenes = [];
 let maxScenes = 3;
+let hiddenScenes = [];
+let hiddenSceneIndex = 0;
+let inHiddenScene = false;
+let hiddenMaxScenes = 3;
 
 function setup() {
   createCanvas(800, 600);
@@ -57,7 +61,7 @@ function setup() {
   scenes[0].addSpike(250, height - groundHeight, 50);
   //scenes[0].addCoin(460, height - groundHeight - 160);
   
-  let portal1 = scenes[0].addPortal(100, height - groundHeight - 60);
+  let portal1 = scenes[0].addPortal(100, height - groundHeight - 60, "main", 0);
   lastCheckPoint = { x: portal1.x, y: portal1.y, scene: 0 };
   
   scenes[1].addCliff(150, 200);
@@ -95,6 +99,15 @@ function setup() {
   }*/
   
   scenes[1].addPipe(650, height - groundHeight - 110, 75, 110);
+  
+  hiddenScenes = [];
+  for(let i = 0; i < hiddenMaxScenes; i++){
+    hiddenScenes.push(new Scene());
+  }
+  
+  let hiddenPortal = hiddenScenes[0].addPortal(100, height - groundHeight - 60, "hidden", 0);
+ // hiddenPortal.unlocked = true;
+  //unlockedPortals.push(hiddenPortal);
   
 }
 
@@ -135,8 +148,15 @@ function drawGame(){
   
   rect(0, height - groundHeight, width, groundHeight);
   fill(90, 194, 108);
-  for(let cliff of scenes[sceneIndex].cliffs){
-    rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
+  if(inHiddenScene){
+    for(let cliff of hiddenScenes[hiddenSceneIndex].cliffs){
+      rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
+    }
+    
+  } else {
+    for(let cliff of scenes[sceneIndex].cliffs){
+      rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
+    }
   }
   
   
@@ -169,9 +189,15 @@ function drawGame(){
   }
   
   */
+  if(inHiddenScene){
+    hiddenScenes[hiddenSceneIndex].update();
+    hiddenScenes[hiddenSceneIndex].display();
+  }
+  else{
+    scenes[sceneIndex].update();
+    scenes[sceneIndex].display();
+  }
   
-  scenes[sceneIndex].update();
-  scenes[sceneIndex].display();
   player.update();
   player.display();
   drawHUD();
@@ -343,12 +369,20 @@ class Spike{
 
 function respawnPlayer(){
   if(lastCheckPoint){
-    sceneIndex = lastCheckPoint.scene;
+    if(lastCheckPoint.sceneType === "hidden"){
+      inHiddenScene = true;
+      hiddenSceneIndex = lastCheckPoint.scene;
+    }
+    else{
+      inHiddenScene = false;
+      sceneIndex = lastCheckPoint.scene;
+    }
     player.x = lastCheckPoint.x;
     player.y = lastCheckPoint.y;
     
   }
   else{
+    inHiddenScene = false;
     sceneIndex = 0;
     player.x = 50;
     player.y = height - groundHeight - 40;
@@ -384,10 +418,11 @@ function drawPortalSelection(){
   textSize(24);
   text("Select a Portal", 400, 180);
   
-  for(let i = 0; i < unlockedPortalIndex; i++){
+  for(let i = 0; i < unlockedPortals.length; i++){
     let portal = unlockedPortals[i];
     fill(i === selectedPortalIndex ? "yellow" : "white");
-    text(`Portal ${i + 1} (X: ${portal.x})`, 400, 220 + i * 40);
+    let label = portal.sceneType === "main" ? "Main" : "Hidden"
+    text(`${label} Scene ${portal.sceneIndex + 1}`, 400, 220 + i * 40);
   }
   
   textSize(16);
@@ -411,27 +446,31 @@ function drawHUD(){
 }
 
 class Portal{
-  constructor(x, y){
+  constructor(x, y, sceneType, sceneIndex){
     this.x = x;
     this.y = y + 14;
     this.w = 60;
     this.h = 60;
     this.unlocked = false;
+    this.sceneType = sceneType;
+    this.sceneIndex = sceneIndex;
   }
   
   update(){
     if(!this.unlocked && this.isCollidingWithPlayer()){
       this.unlocked = true;
-      unlockedPortals.push(this);
+      if(!unlockedPortals.includes(this)){
+        unlockedPortals.push(this);
+      }
+      
       goldCoins += 5;
       exp += 5;
-      lastCheckPoint = { x: this.x, y: this.y, scene: sceneIndex };
+      lastCheckPoint = { x: this.x, y: this.y, scene: inHiddenScene ? hiddenSceneIndex : sceneIndex, sceneType: inHiddenScene ? "hidden" : "main"};
     }
     
     if(this.unlocked && this.isCollidingWithPlayer() && keyIsDown(controls.use.charCodeAt(0))){
-      if(lastCheckPoint){
-        teleport(lastCheckPoint);
-      }
+      isChoosingPortal = true;
+      selectedPortalIndex = 0;
     }
   }
   
@@ -454,7 +493,23 @@ function teleport(targetPortal){
   if(targetPortal){
     player.x = targetPortal.x;
     player.y = targetPortal.y;
+    
+    if(targetPortal.sceneType === "main"){
+      inHiddenScene = false;
+      sceneIndex = targetPortal.sceneIndex;
+    }
+    
+    else if(targetPortal.sceneType === "hidden"){
+      inHiddenScene = true;
+      hiddenSceneIndex = targetPortal.sceneIndex;
+    }
+    
+    lastCheckPoint = { x: targetPortal.x, y: targetPortal.y, scene: inHiddenScene ? hiddenSceneIndex : sceneIndex, sceneType: inHiddenScene ? "hidden" : "main"};
+    
+    setupNextScene();
   }
+  
+  isChoosingPortal = true;
 }
 
 function collection(){
@@ -555,17 +610,41 @@ class Player{
   
   checkSceneTransition(){
     let centerX = this.x + this.w / 2;
+    if(inHiddenScene){
+      if(centerX >= width && hiddenSceneIndex < hiddenMaxScenes - 1){
+        hiddenSceneIndex++;
+        this.x = this.w / 2;
+        setupNextScene();
+      }
     
-    if(centerX >= width && sceneIndex < maxScenes - 1){
-      sceneIndex++;
-      this.x = this.w / 2;
-      setupNextScene();
+      else if(centerX <= 0 && hiddenSceneIndex > 0){
+        hiddenSceneIndex--;
+        this.x = width - this.w / 2;
+        setupNextScene();
+      }
+      
+      else{
+        if(hiddenSceneIndex === 0 && centerX <= 0){
+         this.x = 0;
+        }
+      
+        if(hiddenSceneIndex === hiddenMaxScenes - 1 && centerX >= width){
+          this.x = width - this.w;
+        }
+      }
     }
+    else{
+      if(centerX >= width && sceneIndex < maxScenes - 1){
+        sceneIndex++;
+        this.x = this.w / 2;
+        setupNextScene();
+      }
     
-    if(centerX <= 0 && sceneIndex > 0){
-      sceneIndex--;
-      this.x = width - this.w / 2;
-      setupNextScene();
+      if(centerX <= 0 && sceneIndex > 0){
+        sceneIndex--;
+        this.x = width - this.w / 2;
+        setupNextScene();
+      }
     }
   }
   
@@ -661,10 +740,10 @@ function keyPressed(){
   
   else if(isChoosingPortal){
     if(keyCode === UP_ARROW){
-      selectedPortalIndex = max(0, selectedPortalIndex - 1);
+      selectedPortalIndex = (selectedPortalIndex - 1 + unlockedPortals.length) % unlockedPortals.length;
     }
     else if(keyCode === DOWN_ARROW){
-      selectedPortalIndex = min(0, selectedPortalIndex - 1);
+      selectedPortalIndex = (selectedPortalIndex + 1) % unlockedPortals.length;
     }
     else if(keyCode === controls.use.charCodeAt(0)){
       teleport(unlockedPortals[selectedPortalIndex]);
@@ -742,8 +821,16 @@ class Enemy{
   }
   
   display(){
-    fill(0, 200, 0);
-    rect(this.x, this.y, this.w, this.h);
+    push();
+    if(this.direction < 0){
+      image(monsterImg1, this.x, this.y, this.w, this.h);
+    }
+    else{
+      translate(this.x + this.w, this.y);
+      scale(-1, 1);
+      image(monsterImg1, 0, 0, this.w, this.h);
+    }
+    pop();
   }
   
   isCollidingWithPlayer(){
@@ -753,17 +840,25 @@ class Enemy{
 }
 
 function setupNextScene(){
-  console.log(`Switch to Scene ${sceneIndex}`);
+  if(inHiddenScene){
+    console.log(`Switch to Hidden Scene ${hiddenSceneIndex}`);
   
-  spikes = scenes[sceneIndex].spikes;
-  enemies = scenes[sceneIndex].enemies;
-  platforms = scenes[sceneIndex].platforms;
-  coins = scenes[sceneIndex].coins;
-  portals = scenes[sceneIndex].portals;
+    spikes = hiddenScenes[hiddenSceneIndex].spikes;
+    enemies = hiddenScenes[hiddenSceneIndex].enemies;
+    platforms = hiddenScenes[hiddenSceneIndex].platforms;
+    coins = hiddenScenes[hiddenSceneIndex].coins;
+    portals = hiddenScenes[hiddenSceneIndex].portals;
+  }
+  else{
+    console.log(`Switch to Scene ${sceneIndex}`);
   
-  if (sceneIndex === maxScenes) {
-  background(135, 206, 250); // 先用主关卡背景，之后可以修改
-}
+    spikes = scenes[sceneIndex].spikes;
+    enemies = scenes[sceneIndex].enemies;
+    platforms = scenes[sceneIndex].platforms;
+    coins = scenes[sceneIndex].coins;
+    portals = scenes[sceneIndex].portals;
+  }
+  
 }
 
 class Scene{
@@ -796,8 +891,8 @@ class Scene{
     this.enemies.push(new Enemy(x, y, w, h, speed, minX, maxX));
   }
   
-  addPortal(x, y){
-    let portal = new Portal(x, y);
+  addPortal(x, y, sceneType, sceneIndex){
+    let portal = new Portal(x, y, sceneType, sceneIndex);
     this.portals.push(portal);
     return portal;
   }
@@ -853,6 +948,8 @@ class Turret{
     this.y = y;
     this.fireRate = 60;
     this.timer = 0;
+    this.w = 30;
+    this.h = 30;
   }
   
   update(){
@@ -868,8 +965,7 @@ class Turret{
   }
   
   display(){
-    fill(255, 0, 0);
-    rect(this.x, this.y, 20, 20);
+    image(turretImg, this.x, this.y, this.w, this.h);
   }
   
   isCollidingWithPlayer(){
@@ -901,8 +997,7 @@ class Bullet{
   }
   
   display(){
-    fill(255, 255, 0);
-    ellipse(this.x, this.y, this.size);
+    image(bulletImg, this.x, this.y, this.size, this.size);
   }
   
   isCollidingWithPlayer(){
@@ -946,8 +1041,9 @@ class BreakableBlock{
 }
 
 function checkFallDeath(){
+  let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
   let isOverCliff = false;
-  for(let cliff of scenes[sceneIndex].cliffs){
+  for(let cliff of currentScene.cliffs){
     if(player.x > cliff.startX && player.x + player.w < cliff.endX){
       isOverCliff = true;
       break;
@@ -961,8 +1057,10 @@ function checkFallDeath(){
 }
 
 function isPlayerOverCliff(){
-  for(let cliff of scenes[sceneIndex].cliffs){
-    if(player.x > cliff.startX && player.x + player.w < cliff.endX){
+  let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+  
+  for(let cliff of currentScene.cliffs){
+    if(player.x > cliff.startX && player.x + player.w < cliff.endX + player.speed){
       return true;
     }
   }
@@ -1005,7 +1103,11 @@ class Pipe{
 }
 
 function enterHiddenLevel(){
-  sceneIndex = maxScenes;
+  inHiddenScene = true;
+  hiddenSceneIndex = 0;
+  player.x = 50;
+  player.y = height - groundHeight - player.h;
+  
   setupNextScene();
 }
 
@@ -1020,4 +1122,7 @@ function preload(){
   playerImg2 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/MaleCat2.PNG");
   pipeImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/HollowTree.PNG");
   monsterImg1 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Monster1.png");
+  bulletImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Bullet.PNG");
+  turretImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Turret.PNG");
+  coinImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Can.png");
 }
