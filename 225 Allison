@@ -1,0 +1,1146 @@
+let bgImage, blockImage, spikeImage, playerImage, groundImage, portalImgClosed, portalImgOpened, playerImg1, playerImg2, pipeImg, monsterImg1, bulletImg, turretImg, coinImg;
+
+let buttons = [];
+let gameState = "menu";
+let volume = 5;
+let controls = {left:'A', right:'D', attack:'J', jump:'K', item:'I', pause:'P', use:'E'};
+let controlKeys = Object.keys(controls);
+let changingKey = null;
+let titleFontSize = 48;
+let titleY;
+let groundHeight = 150;
+let sceneIndex = 0;
+let goldCoins = 0;
+let level = 1;
+let exp = 0;
+let elapsedTime = 0;
+let portals = [];
+let unlockedPortals = [];
+let isChoosingPortal = false;
+let selectedPortalIndex = 0;
+let spikes = [];
+let currentSpawnPoint = null;
+let platforms = [];
+let coins = [];
+let enemies = [];
+let scenes = [];
+let maxScenes = 3;
+let hiddenScenes = [];
+let hiddenSceneIndex = 0;
+let inHiddenScene = false;
+let hiddenMaxScenes = 3;
+let breakableBlocks =[];
+
+function setup() {
+  createCanvas(800, 600);
+  textAlign(CENTER, CENTER);
+  titleY = height / 4;//设置标题位置
+  sceneIndex = 0;
+  
+  let startY = height / 2;
+  
+  buttons.push(new Button(width / 2 - 100, height / 2 - 60, "New Start", () => gameState = "playing"));
+  buttons.push(new Button(width / 2 - 100, height / 2, "Continue", () => console.log("Load Game")));
+  buttons.push(new Button(width / 2 - 100, height / 2 + 60, "Setting", () => gameState = "settings"));
+  buttons.push(new Button(width / 2 - 100, height / 2 + 120, "Exit", () => noLoop()));
+  //按钮位置
+  
+  player = new Player(50, height - groundHeight - 40);
+  //portals.push(new Portal(100, height - groundHeight - 60));
+  //currentSpawnPoint = {x: 100, y: height - groundHeight - 50};
+  //spikes.push(new Spike(250, height - groundHeight, 50));
+  
+  for(let i = 0; i <= maxScenes; i++){
+    scenes.push(new Scene());
+  }
+  
+  scenes[0].addPlatform(450, height - groundHeight - 130, 30, true);
+  scenes[0].addPlatform(480, height - groundHeight - 130, 30, true);
+  scenes[0].addPlatform(510, height - groundHeight - 130, 30, true);
+  scenes[0].addPlatform(540, height - groundHeight - 130, 30, true);
+  scenes[0].addEnemy(400, height - groundHeight - 25, 25, 25, 2, 400, 700);
+  scenes[0].addSpike(250, height - groundHeight, 50);
+  //scenes[0].addCoin(460, height - groundHeight - 160);
+  
+  let portal1 = scenes[0].addPortal(100, height - groundHeight - 60, "main", 0);
+  lastCheckPoint = { x: portal1.x, y: portal1.y, scene: 0 };
+  
+  scenes[1].addCliff(150, 200);
+  scenes[1].addCliff(250, 300);
+  
+  scenes[1].addTurret(165, height - 20);
+  scenes[1].addTurret(265, height - 20);
+  
+  for(let x = 150; x <= 270; x += 30){
+    scenes[1].addPlatform(x, height - groundHeight - 240, 30, false);
+  }
+  
+  for(let x = 150; x <= 270; x += 30){
+    scenes[1].addCoin(x + 15, height - groundHeight - 270, false);
+  }
+  //上下兩側方塊條
+  for(let i = 0; i < 4; i++){
+    
+    let xPos = 450 + i * 30; // 計算 X 座標
+
+    if (i === 1 || i === 2) { 
+        scenes[1].addBreakableBlock(xPos, height - groundHeight - 100, 30);
+    } else {
+        scenes[1].addPlatform(xPos, height - groundHeight - 100, 30, false);
+    }
+    scenes[1].addPlatform(450 + i * 30, height - groundHeight - 220, 30, false);
+  }
+  
+  //左右兩側方塊條
+  for(let i = 0; i < 5; i++){
+    scenes[1].addPlatform(450, height - groundHeight -(100 + i * 30), 30, false);
+    scenes[1].addPlatform(540, height - groundHeight -(100 + i * 30), 30, false);
+  }
+  
+  for(let i = 1; i < 3; i++){
+    for(let j = 0; j < 3; j++){
+      scenes[1].addCoin(450 + i * 30 + 15, height - groundHeight -(100 + j * 30 + 15), false);
+    }
+  }
+  
+  /*for(let i = 0; i < 4; i++){
+    scenes[1].addBreakableBlock(450 + i * 30, 130, 30);
+  }*/
+  
+  scenes[1].addPipe(650, height - groundHeight - 110, 75, 110);
+  
+  hiddenScenes = [];
+  for(let i = 0; i < hiddenMaxScenes; i++){
+    hiddenScenes.push(new Scene());
+  }
+  
+  let hiddenPortal = hiddenScenes[0].addPortal(100, height - groundHeight - 60, "hidden", 0);
+ // hiddenPortal.unlocked = true;
+  //unlockedPortals.push(hiddenPortal);
+  
+}
+
+function draw() {
+  background(240);
+  
+  if(gameState === "menu"){
+    drawMenu();
+  }
+  else if(gameState === "settings"){
+    drawSettings();
+  }
+  else if(gameState === "playing"){
+    drawGame();
+  }
+  else if(gameState === "upgrade"){
+    drawUpgrade();
+  }
+}
+
+function drawMenu(){
+  background(240);
+  fill(50);
+  textSize(titleFontSize);
+  text("Dukat Soul", width / 2, titleY);
+  
+  for (let btn of buttons) {
+    btn.display();
+  }
+}
+
+function drawGame(){
+  image(bgImage, 0, 0, width, height);
+  
+  
+  noStroke();
+  image(groundImage, 0, height - groundHeight, width, groundHeight)
+  
+  rect(0, height - groundHeight, width, groundHeight);
+  fill(90, 194, 108);
+  if(inHiddenScene){
+    for(let cliff of hiddenScenes[hiddenSceneIndex].cliffs){
+      rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
+    }
+    
+  } else {
+    for(let cliff of scenes[sceneIndex].cliffs){
+      rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
+    }
+  }
+  
+  
+  //for(let portal of portals){
+    //portal.update();
+   // portal.display();
+  //}
+  
+  
+  
+  /*for(let spike of spikes){
+    spike.update();
+    spike.display();
+  }
+  
+  
+  for(let platform of platforms){
+    platform.update();
+    platform.display();
+  }
+  
+  for(let coin of coins){
+    coin.update();
+    coin.display();
+  }
+  
+  for(let enemy of enemies){
+    enemy.update();
+    enemy.display();
+  }
+  
+  */
+  if(inHiddenScene){
+    hiddenScenes[hiddenSceneIndex].update();
+    hiddenScenes[hiddenSceneIndex].display();
+  }
+  else{
+    scenes[sceneIndex].update();
+    scenes[sceneIndex].display();
+  }
+  
+  player.update();
+  player.display();
+  drawHUD();
+  
+  //fill(0);
+  //textSize(20);
+  //text(`Scene: ${sceneIndex}`, width - 80, 30);
+  
+  if(isChoosingPortal){
+    drawPortalSelection();
+  }
+}
+
+class Platform{
+  constructor(x, y, size, hasCoin = true){
+    this.x = x;
+    this.y = y + 14;
+    this.size = size;
+    this.hasCoin = hasCoin;
+  }
+  
+  update(){
+/*    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       //player.y == this.y + this.size && player.velocityY < 0){
+       //player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
+       player.y <= this.y + this.size && player.y >= this.y && player.velocityY < 0){
+      player.velocityY = 0;
+      if(this.hasCoin){
+        let newCoin = new Coin(this.x + this.size / 2, this.y - 10);
+        scenes[sceneIndex].coins.push(new Coin(this.x + this.size / 2, this.y - 10));
+        this.hasCoin = false;
+      }
+    }
+    
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y + player.h >= this.y && player.y + player.h - player.velocityY < this.y + 5 &&
+       player.velocityY > 0){
+      player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+    }
+    
+//    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+ //      player.y + player.h > this.y && player.velocityY > 0){
+   //   player.y = this.y - player.h;
+     // player.velocityY = 0;
+     // player.onGround = true;
+    //}
+*/    
+    let hasBlockAbove = scenes[sceneIndex].platforms.some(platform => 
+      platform.x === this.x && platform.y === this.y - this.size
+    );
+    
+    if (player.y + player.h > this.y && player.y < this.y + this.size) {
+      // **人物从右侧撞到方块**
+      let nextX = player.x + player.velocityX; // 预测下一帧 X 位置
+      if (player.velocityX > 0 && player.prevX + player.w <= this.x && nextX + player.w > this.x) {
+        player.x = this.x - player.w;
+        player.velocityX = 0;
+      }
+      // **人物从左侧撞到方块**
+      if (player.velocityX < 0 && player.prevX >= this.x + this.size && nextX < this.x + this.size) {
+        player.x = this.x + this.size;
+        player.velocityX = 0;
+      }
+    }
+    
+    if (player.x + player.w > this.x && player.x < this.x + this.size &&
+        player.y < this.y + this.size && player.prevY >= this.y + this.size &&
+        player.velocityY < 0) {
+      player.y = this.y + this.size;
+      player.velocityY = 0;
+      
+      if (this.hasCoin) {
+        scenes[sceneIndex].coins.push(new Coin(this.x + this.size / 2, this.y - 10));
+        this.hasCoin = false;
+      }
+      return; 
+    }
+    
+    if (!hasBlockAbove && player.x + player.w > this.x && player.x < this.x + this.size &&
+        player.y + player.h > this.y && player.prevY + player.h <= this.y &&
+        player.velocityY > 0) {
+      player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+      return;
+    }
+    
+    
+  }
+  
+  display(){
+    image(blockImage, this.x, this.y, this.size, this.size);
+  }
+}
+
+class Coin{
+  constructor(x, y, hasGravity = true){
+    this.x = x;
+    this.y = y + 14;
+    this.size = 15;
+    this.collected = false;
+    this.hasGravity = hasGravity;
+    this.velocityY = hasGravity ? -2 : 0;
+    this.gravity = hasGravity ? 0.5 : 0;
+  }
+  
+  update(){
+    if(this.hasGravity){
+      this.velocityY += this.gravity;
+      this.y += this.velocityY;
+    }
+    
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y + player.h > this.y && player.y < this.y + this.size &&
+       !this.collected){
+      this.collected = true;
+      collection();
+      
+      let index = scenes[sceneIndex].coins.indexOf(this);
+      if(index > -1){
+        scenes[sceneIndex].coins.splice(index, 1);
+      }
+    }
+  }
+  
+  display(){
+    if(!this.collected){
+      fill("gold");
+      ellipse(this.x, this.y, this.size);
+    }
+  }
+}
+
+class Spike{
+  constructor(x, y, w){
+    this.x = x;
+    this.y = height - groundHeight + 14;
+    this.w = w;
+    this.h = 15;
+    this.visible = false;
+  }
+  
+  update(){
+    if(dist(player.x + 20, player.y + 30, this.x + this.w / 2, this.y) < 70){
+      this.visible = true;
+    }
+    
+    if(this.visible && this.isCollidingWithPlayer()){
+      respawnPlayer();
+      this.visible = false;
+      
+    }
+  }
+  
+  display(){
+    if(this.visible){
+      image(spikeImage, this.x, this.y - this.h, this.w, this.h);
+      //triangle(this.x, this.y, this.x + this.w / 2, this.y - this.h, this.x + this.w, this.y);
+    }
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.w && player.x + player.w > this.x && 
+           player.y + player.h > this.y - this.h);
+  }
+}
+
+function respawnPlayer(){
+  if(lastCheckPoint){
+    if(lastCheckPoint.sceneType === "hidden"){
+      inHiddenScene = true;
+      hiddenSceneIndex = lastCheckPoint.scene;
+    }
+    else{
+      inHiddenScene = false;
+      sceneIndex = lastCheckPoint.scene;
+    }
+    player.x = lastCheckPoint.x;
+    player.y = lastCheckPoint.y;
+    
+  }
+  else{
+    inHiddenScene = false;
+    sceneIndex = 0;
+    player.x = 50;
+    player.y = height - groundHeight - 40;
+  }
+    
+  exp = 0;
+  
+  let scene = scenes[sceneIndex];
+  
+  for(let coin of scene.coins){
+    coin.collected = false;
+  }
+  scene.coins = [];
+  
+  for(let spike of scene.spikes){
+    spike.visible = false;
+  }
+  for(let platform of platforms){
+    platform.hasCoin = true;
+    //scene.coins.push(new Coin(platform.x + platform.size / 2, platform.y - 10));
+  }
+  
+  
+  //scene.enemies = [];
+  //scene.spikes = [];
+  setupNextScene();
+}
+
+function drawPortalSelection(){
+  fill(0, 150);
+  rect(200, 150, 400, 300, 20);
+  fill(250);
+  textSize(24);
+  text("Select a Portal", 400, 180);
+  
+  for(let i = 0; i < unlockedPortals.length; i++){
+    let portal = unlockedPortals[i];
+    fill(i === selectedPortalIndex ? "yellow" : "white");
+    let label = portal.sceneType === "main" ? "Main" : "Hidden"
+    text(`${label} Scene ${portal.sceneIndex + 1}`, 400, 220 + i * 40);
+  }
+  
+  textSize(16);
+  fill(200);
+  text("↑/↓ to navigate, E to confirm, ESC to cancel", 400, 420);
+}
+
+function drawHUD(){
+  fill(255);
+  textSize(16);
+  
+  text(`Level ${level}`, 80, 30);
+  fill("gold");
+  rect(20, 40, (exp / 10) * 100, 10);
+  noFill();
+  stroke(255);
+  rect(20, 40, 100, 10);
+  
+  let timeElapsed = Math.floor(millis() / 1000);
+  text(`Time: ${timeElapsed}s`, width - 80, 30);
+}
+
+class Portal{
+  constructor(x, y, sceneType, sceneIndex){
+    this.x = x;
+    this.y = y + 14;
+    this.w = 60;
+    this.h = 60;
+    this.unlocked = false;
+    this.sceneType = sceneType;
+    this.sceneIndex = sceneIndex;
+  }
+  
+  update(){
+    if(!this.unlocked && this.isCollidingWithPlayer()){
+      this.unlocked = true;
+      if(!unlockedPortals.includes(this)){
+        unlockedPortals.push(this);
+      }
+      
+      goldCoins += 5;
+      exp += 5;
+      lastCheckPoint = { x: this.x, y: this.y, scene: inHiddenScene ? hiddenSceneIndex : sceneIndex, sceneType: inHiddenScene ? "hidden" : "main"};
+    }
+    
+    if(this.unlocked && this.isCollidingWithPlayer() && keyIsDown(controls.use.charCodeAt(0))){
+      isChoosingPortal = true;
+      selectedPortalIndex = 0;
+    }
+  }
+  
+  display(){
+    if(this.unlocked){
+      image(portalImgOpened, this.x, this.y, this.w, this.h);
+    }
+    else{
+      image(portalImgClosed, this.x, this.y, this.w, this.h);
+    }
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.w && player.x + player.w > this.x &&
+           player.y < this.y + this.h && player.y + player.h > this.y);
+  }
+}
+
+function teleport(targetPortal){
+  if(targetPortal){
+    player.x = targetPortal.x;
+    player.y = targetPortal.y;
+    
+    if(targetPortal.sceneType === "main"){
+      inHiddenScene = false;
+      sceneIndex = targetPortal.sceneIndex;
+    }
+    
+    else if(targetPortal.sceneType === "hidden"){
+      inHiddenScene = true;
+      hiddenSceneIndex = targetPortal.sceneIndex;
+    }
+    
+    setupNextScene();
+  }
+  
+  isChoosingPortal = true;
+}
+
+function collection(){
+  goldCoins += 1;
+  exp += 1;
+  if(exp >= 10){
+    exp -= 10;
+    level += 1;
+    gameState = "upgrade";
+  }
+}
+
+class Player{
+  constructor(x, y){
+    this.x = x;
+    this.y = y + 14;
+    this.w = 25;
+    this.h = 40;
+    this.speed = 3;
+    this.gravity = 0.5;
+    this.jumpPower = -Math.sqrt(2 * this.gravity * 150);
+    this.velocityX = 0;
+    this.velocityY = 0;
+    this.onGround = false;
+    this.canDoubleJump = false;
+    this.hasDoubleJumped = false;
+    
+    this.facingRight = true;
+    this.frameCounter = 0;
+    this.imageIndex = 0;
+  }
+  
+  update(){
+    this.prevX = this.x;
+    this.prevY = this.y;
+    
+    let moving = false;
+    this.velocityX = 0;
+    
+    if(keyIsDown(controls.left.charCodeAt(0))){
+      this.velocityX = -this.speed;
+      this.facingRight = false;
+      moving = true;
+    }
+    if(keyIsDown(controls.right.charCodeAt(0))){
+      this.velocityX = this.speed;
+      this.facingRight = true;
+      moving = true;
+    }
+    
+    if(keyIsDown(controls.jump.charCodeAt(0))){
+      if(this.onGround){
+        this.velocityY = this.jumpPower;
+        this.onGround = false;
+        this.hasDoubleJumpes = false;
+      }
+      else if(this.canDoubleJump && !this.hasDoubleJumped){
+        this.velocityY = this.jumpPower * 0.9;
+        this.hasDoubleJumped = true;
+      }
+    }
+    
+    checkFallDeath();
+    
+    if(!this.onGround){
+      this.velocityY += this.gravity;
+    }
+    
+    this.x += this.velocityX;
+    this.y += this.velocityY;
+    
+    
+     
+    if (!isPlayerOverCliff() && this.y >= height - groundHeight + 14 - this.h) {
+      this.y = height - groundHeight + 14 - this.h;
+      this.velocityY = 0;
+      this.onGround = true;
+      this.hasDoubleJumped = false;
+    } else {
+      this.onGround = false;
+    }
+
+    this.checkSceneTransition();
+    
+    this.x = constrain(this.x, 0 - this.w / 2, width - this.w / 2);
+  }
+  
+  if(moving){
+    this.frameCounter++;
+    if(this.frameCounter >= 10){
+      this.imageIndex = 1 - this.imageIndex;
+      this.frameCounter = 0;
+    }
+    else{
+      this.imageIndex = 0;
+    }
+  }
+  
+  checkSceneTransition(){
+    let centerX = this.x + this.w / 2;
+    if(inHiddenScene){
+      if(centerX >= width && hiddenSceneIndex < hiddenMaxScenes - 1){
+        hiddenSceneIndex++;
+        this.x = this.w / 2;
+        setupNextScene();
+      }
+    
+      else if(centerX <= 0 && hiddenSceneIndex > 0){
+        hiddenSceneIndex--;
+        this.x = width - this.w / 2;
+        setupNextScene();
+      }
+      
+      else{
+        if(hiddenSceneIndex === 0 && centerX <= 0){
+         this.x = 0;
+        }
+      
+        if(hiddenSceneIndex === hiddenMaxScenes - 1 && centerX >= width){
+          this.x = width - this.w;
+        }
+      }
+    }
+    else{
+      if(centerX >= width && sceneIndex < maxScenes - 1){
+        sceneIndex++;
+        this.x = this.w / 2;
+        setupNextScene();
+      }
+    
+      if(centerX <= 0 && sceneIndex > 0){
+        sceneIndex--;
+        this.x = width - this.w / 2;
+        setupNextScene();
+      }
+    }
+  }
+  
+  display(){
+    let imgToShow = this.imageIndex === 0 ? playerImg1 : playerImg2;
+    
+    if(!this.facingRight){
+      push();
+      scale(-1, 1);
+      image(imgToShow, -this.x - this.w, this.y, this.w, this.h);
+      pop();
+    }
+    else{
+      image(imgToShow, this.x, this.y, this.w, this.h);
+    }
+  }
+}
+
+function drawSettings(){
+  fill(50);
+  textSize(32);
+  text("Settings", width / 2, 50);
+  
+  textSize(24);
+  text("Volume", width / 2, 150);
+  text(volume, width / 2, 180);
+  rect(width / 2 - 70, 170, 30, 30);
+  rect(width / 2 + 40, 170, 30, 30);
+  text("-", width / 2 - 55, 185);
+  text("+", width / 2 + 55, 185);
+  
+  let controlLabels = ["Left", "Right", "Attack", "Jump", "Item", "Pause", "Use"];
+  let keys = Object.values(controls);
+  
+  for(let i = 0; i < controlLabels.length; i++){
+    let y = 250 + i * 40;
+    
+    let displayText = changingKey === controlKeys[i] ? "Press any key..." : `${controlLabels[i]}: ${keys[i]}`;
+    
+    if(changingKey === controlKeys[i]){
+      fill(255, 0, 0);
+    }
+    else{
+      fill(0);
+    }
+    text(displayText, width / 2, y);
+    
+    stroke(0);
+    noFill();
+    rect(width / 2 - 100, y - 15, 200, 30);
+  }
+  
+  textSize(20);
+  text("Press any key to change setting", width / 2, 520);
+  text("Press ESC to return", width / 2, 550);
+}
+
+function mousePressed(){
+  if(gameState === "menu"){
+    for(let btn of buttons){
+      btn.checkClick();
+    }
+  }
+  else if(gameState === "settings"){
+    if(mouseX > width / 2 - 70 && mouseX < width / 2 - 40 && mouseY > 170 && mouseY < 200){
+      volume = max(0, volume - 1);
+    }
+    if(mouseX > width / 2 + 40 && mouseX < width / 2 + 70 && mouseY > 170 && mouseY < 200){
+      volume = min(10, volume + 1);
+    }
+    
+    let controlLabels = ["Left", "Right", "Attack", "Jump", "Item", "Pause", "Use"];
+    for(let i = 0; i < controlLabels.length; i++){
+      let y = 250 + i * 40;
+      if(mouseX > width / 2 - 100 && mouseX < width / 2 + 100 && mouseY > y - 15 && mouseY < y + 15){
+        changingKey = controlKeys[i];
+      }
+    }
+  }
+}
+
+function keyPressed(){
+  if(gameState === "settings"){
+    if(keyCode === ESCAPE){
+      changingKey = null;
+      gameState = "menu";
+    }
+    else if(changingKey){
+      controls[changingKey] = key.toUpperCase();
+      changingKey = null;
+    }
+  }
+  
+  else if(isChoosingPortal){
+    if(keyCode === UP_ARROW){
+      selectedPortalIndex = (selectedPortalIndex - 1 + unlockedPortals.length) % unlockedPortals.length;
+    }
+    else if(keyCode === DOWN_ARROW){
+      selectedPortalIndex = (selectedPortalIndex + 1) % unlockedPortals.length;
+    }
+    else if(keyCode === controls.use.charCodeAt(0)){
+      teleport(unlockedPortals[selectedPortalIndex]);
+      isChoosingPortal = false;
+    }
+    else if(keyCode === ESCAPE){
+      isChoosingPortal = false;
+    }
+  }
+}
+
+class Button{
+  constructor(x, y, label, action){
+    this.x = x;
+    this.y = y;
+    this.label = label;
+    this.action = action;
+    this.w = 200;
+    this.h = 50;
+    this.defaultColor = color(200);
+    this.hoverColor = color(150);
+    this.currentColor = this.defaultColor;
+  }
+  
+  display(){
+    if(this.isHovered()){
+      this.currentColor = this.hoverColor;
+    }
+    else{
+      this.currentColor = this.defaultColor;
+    }
+    
+    fill(this.currentColor);
+    stroke(0);
+    rect(this.x, this.y, this.w, this.h, 10);//圆角矩形
+    
+    fill(0);
+    textSize(24);
+    text(this.label, this.x + this.w / 2, this.y + this.h / 2);
+  }
+  
+  isHovered(){
+    return mouseX > this.x && mouseX < this.x + this.w && mouseY > this.y && mouseY < this.y + this.h;
+  }
+  
+  checkClick(){
+    if(this.isHovered()){
+      this.action();
+    }
+  }
+}
+
+class Enemy{
+  constructor(x, y, w, h, speed, minX, maxX){
+    this.x = x;
+    this.y = y + 12;
+    this.w = w;
+    this.h = h;
+    this.speed = speed;
+    this.minX = minX;
+    this.maxX = maxX;
+    this.direction = 1;
+  }
+  
+  update(){
+    this.x += this.speed * this.direction;
+    
+    if(this.x >= this.maxX || this.x <= this.minX){
+      this.direction *= -1;
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    push();
+    if(this.direction < 0){
+      image(monsterImg1, this.x, this.y, this.w, this.h);
+    }
+    else{
+      translate(this.x + this.w, this.y);
+      scale(-1, 1);
+      image(monsterImg1, 0, 0, this.w, this.h);
+    }
+    pop();
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.w && player.x + player.w > this.x &&
+           player.y < this.y + this.h && player.y + player.h > this.y);
+  }
+}
+
+function setupNextScene(){
+  if(inHiddenScene){
+    console.log(`Switch to Hidden Scene ${hiddenSceneIndex}`);
+  
+    spikes = hiddenScenes[hiddenSceneIndex].spikes;
+    enemies = hiddenScenes[hiddenSceneIndex].enemies;
+    platforms = hiddenScenes[hiddenSceneIndex].platforms;
+    coins = hiddenScenes[hiddenSceneIndex].coins;
+    portals = hiddenScenes[hiddenSceneIndex].portals;
+  }
+  else{
+    console.log(`Switch to Scene ${sceneIndex}`);
+  
+    spikes = scenes[sceneIndex].spikes;
+    enemies = scenes[sceneIndex].enemies;
+    platforms = scenes[sceneIndex].platforms;
+    coins = scenes[sceneIndex].coins;
+    portals = scenes[sceneIndex].portals;
+  }
+  
+}
+
+class Scene{
+  constructor(){
+    this.platforms = [];
+    this.coins = [];
+    this.spikes = [];
+    this.enemies = [];
+    this.portals = [];
+    this.turrets = [];
+    this.bullets = [];
+    this.cliffs = [];
+    this.breakableBlocks = [];
+    this.pipes = [];
+  }
+  
+  addPlatform(x, y, size){
+    this.platforms.push(new Platform(x, y, size));
+  }
+  
+  addCoin(x, y, hasGravity = true){
+    this.coins.push(new Coin(x, y, hasGravity));
+  }
+  
+  addSpike(x, y, w){
+    this.spikes.push(new Spike(x, y, w));
+  }
+  
+  addEnemy(x, y, w, h, speed, minX, maxX){
+    this.enemies.push(new Enemy(x, y, w, h, speed, minX, maxX));
+  }
+  
+  addPortal(x, y, sceneType, sceneIndex){
+    let portal = new Portal(x, y, sceneType, sceneIndex);
+    this.portals.push(portal);
+    return portal;
+  }
+  
+  addTurret(x, y){
+    this.turrets.push(new Turret(x, y));
+  }
+  
+  addBullet(x, y, speed){
+    this.bullets.push(new Bullet(x, y, speed));
+  }
+  
+  addCliff(startX, endX){
+    this.cliffs.push({ startX, endX });
+  }
+  
+  addBreakableBlock(x, y, size){
+    let block = new BreakableBlock(x, y, size,blockImage2);
+    this.breakableBlocks.push(block);
+  }
+  
+  addPipe(x, y, w, h){
+    this.pipes.push(new Pipe(x, y, w, h));
+  }
+  
+  update(){
+    for(let platform of this.platforms) platform.update();
+    for(let coin of this.coins) coin.update();
+    for(let spike of this.spikes) spike.update();
+    for(let enemy of this.enemies) enemy.update();
+    for(let portal of this.portals) portal.update();
+    for(let turret of this.turrets) turret.update();
+    for(let bullet of this.bullets) bullet.update();
+    for(let block of this.breakableBlocks) block.update();
+    for(let pipe of this.pipes) pipe.update();
+  }
+  
+  display(){
+    for(let platform of this.platforms) platform.display();
+    for(let coin of this.coins) coin.display();
+    for(let spike of this.spikes) spike.display();
+    for(let enemy of this.enemies) enemy.display();
+    for(let portal of this.portals) portal.display();
+    for(let turret of this.turrets) turret.display();
+    for(let bullet of this.bullets) bullet.display();
+    for(let block of this.breakableBlocks) block.display();
+    for(let pipe of this.pipes) pipe.display();
+  }
+}
+
+class Turret{
+  constructor(x, y){
+    this.x = x;
+    this.y = y;
+    this.fireRate = 60;
+    this.timer = 0;
+    this.w = 30;
+    this.h = 30;
+  }
+  
+  update(){
+    this.timer++;
+    if(this.timer >= this.fireRate){
+      scenes[sceneIndex].bullets.push(new Bullet(this.x + 10, this.y, -2));
+      this.timer = 0;
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    image(turretImg, this.x, this.y, this.w, this.h);
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + 20 && player.x + player.w > this.x &&
+           player.y < this.y + 20 && player.y + player.h > this.y);
+  }
+}
+
+class Bullet{
+  constructor(x, y, speed){
+    this.x = x;
+    this.y = y;
+    this.speed = speed;
+    this.size = 10;
+  }
+  
+  update(){
+    this.y += this.speed;
+    if(this.y < 0){
+      let index = scenes[sceneIndex].bullets.indexOf(this);
+      if(index > -1){
+        scenes[sceneIndex].bullets.splice(index, 1);
+      }
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    image(bulletImg, this.x, this.y, this.size, this.size);
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.size && player.x + player.w > this.x &&
+           player.y < this.y + this.size && player.y + player.h > this.y);
+  }
+}
+
+class BreakableBlock{
+  constructor(x, y, size, image){
+    this.x = x;
+    this.y = y + 14 ;
+    this.size = size;
+    this.image = image;
+    this.exists = true;
+    
+  }
+  
+  update(){
+    if(!this.exists) return;
+    
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
+      this.exists = false;
+      player.velocityY = 0;
+      return;
+    }
+    
+    if (player.y + player.h > this.y && player.y < this.y + this.size) {
+      if (player.x + player.w > this.x && player.x < this.x + 5) {
+        player.x = this.x - player.w;
+      }
+      if (player.x < this.x + this.size && player.x + player.w > this.x + this.size - 5) {
+        player.x = this.x + this.size;
+      }
+    }
+  }
+  
+  display(){
+    if(!this.exists) return;
+    
+    if(this.image){
+      image(this.image, this.x,this.y,this.size, this.size);
+    }else{
+    
+    fill(150, 75, 0);
+    rect(this.x, this.y, this.size, this.size);
+    }
+  }
+}
+
+function checkFallDeath(){
+  let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+  let isOverCliff = false;
+  for(let cliff of currentScene.cliffs){
+    if(player.x > cliff.startX && player.x + player.w < cliff.endX){
+      isOverCliff = true;
+      break;
+    }
+  }
+  
+  if(isOverCliff && player.onGround){
+    player.onGround =  false;
+    player.velocityY = 0;
+  }
+}
+
+function isPlayerOverCliff(){
+  let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+  
+  for(let cliff of currentScene.cliffs){
+    if(player.x > cliff.startX && player.x + player.w < cliff.endX + player.speed){
+      return true;
+    }
+  }
+  return false;
+}
+
+class Pipe{
+  constructor(x, y, w, h){
+    this.x = x;
+    this.y = y + 14;
+    this.w = w;
+    this.h = h;
+  }
+  
+  update(){
+    if(player.x + player.w > this.x && player.x < this.x + this.w &&
+       player.y + player.h >= this.y && player.y + player.h - player.velocityY < this.y + 5 &&
+       player.velocityY > 0){
+      player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+    }
+    
+    if(player.y + player.h > this.y && player.y < this.y + this.h){
+      if (player.x + player.w > this.x && player.x < this.x + this.w / 2) {
+        player.x = this.x - player.w; // 左侧
+      } else if (player.x < this.x + this.w && player.x + player.w > this.x + this.w / 2) {
+        player.x = this.x + this.w; // 右侧
+      }
+    }
+    
+    if(player.y + player.h === this.y && keyIsDown(controls.use.charCodeAt(0))){
+      enterHiddenLevel();
+    }
+  }
+  
+  display(){
+    image(pipeImg, this.x, this.y, this.w, this.h);
+  }
+}
+
+function enterHiddenLevel(){
+  inHiddenScene = true;
+  hiddenSceneIndex = 0;
+  player.x = 50;
+  player.y = height - groundHeight - player.h;
+  
+  setupNextScene();
+}
+
+function preload(){
+  bgImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/BACKGROUND.JPG");
+  blockImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/BRICK1.PNG");
+  blockImage2 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/BRICK2.PNG");
+  groundImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/FLOOR.PNG");
+  spikeImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/SPIKE.PNG");
+  portalImgClosed = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/DOOR2.PNG");
+  portalImgOpened = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/DOOR1.PNG");
+  playerImg1 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/MaleCat1.PNG");
+  playerImg2 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/MaleCat2.PNG");
+  pipeImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/HollowTree.PNG");
+  monsterImg1 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Monster1.png");
+  bulletImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Bullet.PNG");
+  turretImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Turret.PNG");
+  coinImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Can.png");
+}
