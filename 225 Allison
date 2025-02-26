@@ -1027,19 +1027,26 @@ class BreakableBlock{
   update(){
     if(!this.exists) return;
     
-    if(player.x + player.w > this.x && player.x < this.x + this.size &&
-       player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
+    if (player.x + player.w > this.x && player.x < this.x + this.size &&
+        player.y < this.y + this.size && player.prevY >= this.y + this.size &&
+        player.velocityY < 0) {
+      player.y = this.y + this.size;
       this.exists = false;
       player.velocityY = 0;
       return;
     }
     
     if (player.y + player.h > this.y && player.y < this.y + this.size) {
-      if (player.x + player.w > this.x && player.x < this.x + 5) {
+      // **人物从右侧撞到方块**
+      let nextX = player.x + player.velocityX; // 预测下一帧 X 位置
+      if (player.velocityX > 0 && player.prevX + player.w <= this.x && nextX + player.w > this.x) {
         player.x = this.x - player.w;
+        player.velocityX = 0;
       }
-      if (player.x < this.x + this.size && player.x + player.w > this.x + this.size - 5) {
+      // **人物从左侧撞到方块**
+      if (player.velocityX < 0 && player.prevX >= this.x + this.size && nextX < this.x + this.size) {
         player.x = this.x + this.size;
+        player.velocityX = 0;
       }
     }
   }
