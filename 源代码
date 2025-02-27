@@ -882,6 +882,7 @@ class Scene{
     this.cliffs = [];
     this.breakableBlocks = [];
     this.pipes = [];
+    this.movablePlatforms = [];
   }
   
   addPlatform(x, y, size){
@@ -927,6 +928,10 @@ class Scene{
     this.pipes.push(new Pipe(x, y, w, h));
   }
   
+  addMovablePlatforms(startX, startY, endX, endY, size, speed){
+    this.movablePlatforms.push(new MovablePlatforms(startX, startY, endX, endY, size, speed));
+  }
+  
   update(){
     for(let platform of this.platforms) platform.update();
     for(let coin of this.coins) coin.update();
@@ -937,6 +942,7 @@ class Scene{
     for(let bullet of this.bullets) bullet.update();
     for(let block of this.breakableBlocks) block.update();
     for(let pipe of this.pipes) pipe.update();
+    for (let movablePlatform of this.movablePlatforms) movablePlatform.update();
   }
   
   display(){
@@ -949,6 +955,7 @@ class Scene{
     for(let bullet of this.bullets) bullet.display();
     for(let block of this.breakableBlocks) block.display();
     for(let pipe of this.pipes) pipe.display();
+    for (let movablePlatform of this.movablePlatforms) movablePlatform.display();
   }
 }
 
@@ -1065,6 +1072,7 @@ class BreakableBlock{
     }
   }
 }
+
 function checkFallDeath(){
   let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
   let isOverCliff = false;
@@ -1134,6 +1142,48 @@ function enterHiddenLevel(){
   player.y = height - groundHeight - player.h;
   
   setupNextScene();
+}
+
+class MovablePlatform{
+  contructor(startX, startY, endX, endY, size, speed = 5){
+    this.x = startX;
+    this.y = startY;
+    this.startX = startX;
+    this.startY = startY;
+    this.endX = endX;
+    this.endY = endY;
+    this.size = size;
+    this.speed = speed;
+    this.moving = false;
+    this.reachedDestination = false;
+  }
+  
+  update(){
+    if(!this.moving && dist(player.x, player.y, this.startX, this.startY) < 50){
+      this.moving = true;
+    }
+    
+    if(this.moving && !this.reachedDestination){
+      let dx = this.endX - this.x;
+      let dy = this.endY - this.y;
+      let distance = sqrt(dx * dx + dy * dy);
+      
+      if(distance > this.speed){
+        this.x += (dx / distance) * this.speed;
+        this.y += (dy / distance) * this.speed;
+      }
+      else{
+        this.x = this.endX;
+        this.y = this.endY;
+        this.reachedDestination = true;
+      }
+    }
+  }
+  
+  display(){
+    fill(150, 75, 0);
+    rect(this.x, this.y, this.size, this.size);
+  }
 }
 
 function preload(){
