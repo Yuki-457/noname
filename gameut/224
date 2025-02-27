@@ -1,0 +1,119 @@
+let difficultyButtons = []; // 存放難度選單的按鈕
+let difficulty = "easy"; // 預設為簡單模式
+
+---------------------------------------------------------------------------------------------------
+function setup() {
+  // 創建難度選擇按鈕
+  difficultyButtons.push(new Button(width / 2 - 100, height / 2 - 40, "Easy Mode", () => {
+    difficulty = "easy";
+    gameState = "playing"; // 進入遊戲
+  }));
+
+  difficultyButtons.push(new Button(width / 2 - 100, height / 2 + 40, "Hard Mode", () => {
+    difficulty = "hard";
+    gameState = "playing"; // 進入遊戲
+  }));
+
+---------------------------------------------------------------------------------------------------
+  function draw() {
+  background(240);
+  
+  if(gameState === "menu"){
+    drawMenu();
+  }
+  else if (gameState === "difficultySelect") {
+    drawDifficultyMenu();
+  } 
+  else if(gameState === "settings"){
+    drawSettings();
+  }
+  else if(gameState === "playing"){
+    drawGame();
+  }
+  else if(gameState === "upgrade"){
+    drawUpgrade();
+  }
+}
+
+---------------------------------------------------------------------------------------------------
+function drawDifficultyMenu() {
+  background(200);
+  fill(50);
+  textSize(32);
+  text("Select Difficulty", width / 2, height / 4);
+  
+  // 顯示按鈕
+  for (let btn of difficultyButtons) {
+    btn.display();
+  }
+  console.log("Current gameState:", gameState);
+}
+
+
+---------------------------------------------------------------------------------------------------
+class Spike{
+  update() {
+    if(difficulty === "easy"){
+      this.visible = true;
+    }
+    
+    // 只有困難模式才會在玩家接近時顯示
+    if (difficulty === "hard") {
+      if (dist(player.x + 20, player.y + 30, this.x + this.w / 2, this.y) < 70) {
+        this.visible = true;
+      }
+    }
+
+    if (this.visible && this.isCollidingWithPlayer()) {
+      respawnPlayer();
+      if (difficulty === "hard") {
+        this.visible = false;
+      }
+    }
+  }
+
+  
+---------------------------------------------------------------------------------------------------
+function mousePressed(){
+  if(gameState === "menu"){
+    for(let btn of buttons){
+      btn.checkClick();
+    }
+  }
+  else if (gameState === "difficultySelect") { 
+    for (let btn of difficultyButtons) { 
+      btn.checkClick(); // 確保難度選擇按鈕可以被點擊
+    }
+  } 
+  else if(gameState === "settings"){
+    if(mouseX > width / 2 - 70 && mouseX < width / 2 - 40 && mouseY > 170 && mouseY < 200){
+      volume = max(0, volume - 1);
+    }
+    if(mouseX > width / 2 + 40 && mouseX < width / 2 + 70 && mouseY > 170 && mouseY < 200){
+      volume = min(10, volume + 1);
+    }
+    
+    let controlLabels = ["Left", "Right", "Attack", "Jump", "Item", "Pause", "Use"];
+    for(let i = 0; i < controlLabels.length; i++){
+      let y = 250 + i * 40;
+      if(mouseX > width / 2 - 100 && mouseX < width / 2 + 100 && mouseY > y - 15 && mouseY < y + 15){
+        changingKey = controlKeys[i];
+      }
+    }
+  }
+}
+
+  
+---------------------------------------------------------------------------------------------------
+class Enemy{
+    this.baseSpeed = speed; // 原始速度
+    this.speed = difficulty === "easy" ? speed * 0.5 : speed; // 簡單模式速度變慢
+  
+---------------------------------------------------------------------------------------------------
+class Bullet{
+    if (difficulty === "easy") {
+      this.speed = speed * 2; // 簡單模式速度減半
+    } else {
+      this.speed = speed; // 困難模式維持原速度
+    }
+  }
