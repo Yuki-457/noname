@@ -1,5 +1,6 @@
 let difficultyButtons = []; // 存放難度選單的按鈕
 let difficulty = "easy"; // 預設為簡單模式
+let backButton;
 
 ---------------------------------------------------------------------------------------------------
 function setup() {
@@ -13,6 +14,12 @@ function setup() {
     difficulty = "hard";
     gameState = "playing"; // 進入遊戲
   }));
+
+  backButton = new Button(width / 2 - 100, height - 100, "Back", () => {
+    if (gameState === "difficultySelect") {
+      gameState = "menu";
+    }
+  });
 
 ---------------------------------------------------------------------------------------------------
   function draw() {
@@ -47,6 +54,7 @@ function drawDifficultyMenu() {
     btn.display();
   }
   console.log("Current gameState:", gameState);
+  backButton.display();  // 顯示返回按鈕
 }
 
 
@@ -84,6 +92,7 @@ function mousePressed(){
     for (let btn of difficultyButtons) { 
       btn.checkClick(); // 確保難度選擇按鈕可以被點擊
     }
+    backButton.checkClick();
   } 
   else if(gameState === "settings"){
     if(mouseX > width / 2 - 70 && mouseX < width / 2 - 40 && mouseY > 170 && mouseY < 200){
@@ -106,8 +115,35 @@ function mousePressed(){
   
 ---------------------------------------------------------------------------------------------------
 class Enemy{
+  constructor(x, y, w, h, speed, minX, maxX){
+    this.x = x;
+    this.y = y + 12;
+    this.w = w;
+    this.h = h;
     this.baseSpeed = speed; // 原始速度
-    this.speed = difficulty === "easy" ? speed * 0.5 : speed; // 簡單模式速度變慢
+    this.minX = minX;
+    this.maxX = maxX;
+    this.direction = 1;
+  }
+  
+  update() {
+    // 根據 difficulty 設置速度
+    if (difficulty === "easy") {
+      this.speed = this.baseSpeed * 0.5; // 簡單模式速度變慢
+    } else {
+      this.speed = this.baseSpeed; // 困難模式保持原速
+    }
+
+    this.x += this.speed * this.direction;
+
+    if (this.x >= this.maxX || this.x <= this.minX) {
+      this.direction *= -1;
+    }
+
+    if (this.isCollidingWithPlayer()) {
+      respawnPlayer();
+    }
+  }
   
 ---------------------------------------------------------------------------------------------------
 class Bullet{
