@@ -116,6 +116,7 @@ function setup() {
   }
   hiddenScenes[0].addCliff(200, 800);
   hiddenScenes[1].addCliff(0,800);
+  hiddenScenes[2].addCliff(0,500);
 
   
   let hiddenPortal = hiddenScenes[0].addPortal(100, height - groundHeight - 60, "hidden", 0);
@@ -141,6 +142,28 @@ function setup() {
   hiddenScenes[1].addPlatform(510, height - groundHeight - 10, 30, true);
   hiddenScenes[1].addPlatform(610, height - groundHeight - 100, 30, true);
   hiddenScenes[1].addPlatform(640, height - groundHeight - 100, 30, true);
+  hiddenScenes[1].addPlatform(770, height - groundHeight - 100, 30, true);
+  hiddenScenes[1].addPlatform(800, height - groundHeight - 100, 30, true);
+  
+  hiddenScenes[2].addPlatform(0, height - groundHeight - 100, 30, true);
+  hiddenScenes[2].addPlatform(30, height - groundHeight - 100, 30, true);
+  hiddenScenes[2].addPlatform(60, height - groundHeight - 100, 30, true);
+  
+  for(let i = 0; i < 4; i++){
+    hiddenScenes[2].addPlatform(0, height - groundHeight -(200 + i * 30), 30, false);
+    hiddenScenes[2].addPlatform(30, height - groundHeight -(200 + i * 30), 30, false);
+    hiddenScenes[2].addPlatform(150, height - groundHeight - 200, 30, true);
+    hiddenScenes[2].addPlatform(180, height - groundHeight - 200, 30, true);
+    hiddenScenes[2].addPlatform(210, height - groundHeight - 100, 30, true);
+     hiddenScenes[2].addPlatform(240, height - groundHeight - 100, 30, true);
+    hiddenScenes[2].addPlatform(380, height - groundHeight - 100, 30, true);
+    hiddenScenes[2].addPlatform(410, height - groundHeight - 100, 30, true);
+    hiddenScenes[2].addPlatform(440, height - groundHeight - 100, 30, true);
+    
+  }
+    
+  
+  
   
   
  // hiddenPortal.unlocked = true;
