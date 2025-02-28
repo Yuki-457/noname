@@ -15,7 +15,7 @@ function setup() {
     gameState = "playing"; // 進入遊戲
   }));
 
-  backButton = new Button(width / 2 - 100, height - 100, "Back", () => {
+  backButton = new Button(width / 2 - 100, height - 150, "Back", () => {
     if (gameState === "difficultySelect") {
       gameState = "menu";
     }
@@ -44,17 +44,24 @@ function setup() {
 
 ---------------------------------------------------------------------------------------------------
 function drawDifficultyMenu() {
-  background(200);
-  fill(50);
-  textSize(32);
-  text("Select Difficulty", width / 2, height / 4);
+  image(coverImg, 0, 0, 800, 600); 
+  
+  // 加半透明黑色遮罩
+  fill(0, 150);   // 0是黑色，150是透明度 (0~255)
+  rect(0, 0, width, height);
+  
+  fill(255);  
+  textSize(50);
+  text("Select Difficulty", width / 2, height / 3);
   
   // 顯示按鈕
   for (let btn of difficultyButtons) {
     btn.display();
   }
+  
   console.log("Current gameState:", gameState);
   backButton.display();  // 顯示返回按鈕
+
 }
 
 
