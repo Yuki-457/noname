@@ -4,6 +4,20 @@ let backButton;
 
 ---------------------------------------------------------------------------------------------------
 function setup() {
+  createCanvas(800, 600);
+  textAlign(CENTER, CENTER);
+  titleY = height / 4;//设置标题位置
+  sceneIndex = 0;
+  
+  let startY = height / 2;
+  
+  buttons.push(new Button(width / 2 - 100, height / 2 - 10, "New Start", () => gameState = "difficultySelect"));
+  buttons.push(new Button(width / 2 - 100, height / 2+ 50, "Continue", () => console.log("Load Game")));
+  buttons.push(new Button(width / 2 - 100, height / 2 + 110, "Setting", () => gameState = "settings"));
+  buttons.push(new Button(width / 2 - 100, height / 2 + 170, "Exit", () => noLoop()));
+  //按钮位置改了位置
+
+
   // 創建難度選擇按鈕
   difficultyButtons.push(new Button(width / 2 - 100, height / 2 - 40, "Easy Mode", () => {
     difficulty = "easy";
@@ -179,16 +193,4 @@ function drawMenu(){
 }
 
 ---------------------------------------------------------------------------------------------------
-function setup() {
-  createCanvas(800, 600);
-  textAlign(CENTER, CENTER);
-  titleY = height / 4;//设置标题位置
-  sceneIndex = 0;
-  
-  let startY = height / 2;
-  
-  buttons.push(new Button(width / 2 - 100, height / 2 - 10, "New Start", () => gameState = "difficultySelect"));
-  buttons.push(new Button(width / 2 - 100, height / 2+ 50, "Continue", () => console.log("Load Game")));
-  buttons.push(new Button(width / 2 - 100, height / 2 + 110, "Setting", () => gameState = "settings"));
-  buttons.push(new Button(width / 2 - 100, height / 2 + 170, "Exit", () => noLoop()));
-  //按钮位置
+
