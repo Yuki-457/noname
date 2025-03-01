@@ -44,18 +44,17 @@ let upgradeButtons = [];
 function drawUpgrade() {
   upgradeButtons.push(new upgradeButton(50, 75, "Increase Size", () => {
     player.h = 60,
+    player.w = 37.5,
     gameState = "playing"
   }));
   upgradeButtons.push(new upgradeButton(450, 75, "Double Jump", () => {
-    player.canDoubleJump = True,
+    player.canDoubleJump = "True",
     gameState = "playing"
   }));
 
-  fill(0, 150);
-  rect(200, 150, 400, 300, 20);
-  fill(250);
-  textSize(24);
-  text("Select an upgrade option", 400, 180);
+  fill(0);
+  textSize(30);
+  text("Select an upgrade option", 400, 50);
   
   for (let btn of upgradeButtons) {
     btn.display();
