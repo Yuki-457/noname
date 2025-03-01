@@ -1,0 +1,63 @@
+更新的内容：
+
+function mousePressed(){
+  if(gameState === "menu"){
+    for(let btn of buttons){
+      btn.checkClick();
+    }
+  }
+  else if(gameState === "settings"){
+    if(mouseX > width / 2 - 70 && mouseX < width / 2 - 40 && mouseY > 170 && mouseY < 200){
+      volume = max(0, volume - 1);
+    }
+    if(mouseX > width / 2 + 40 && mouseX < width / 2 + 70 && mouseY > 170 && mouseY < 200){
+      volume = min(10, volume + 1);
+    }
+    
+    let controlLabels = ["Left", "Right", "Attack", "Jump", "Item", "Pause", "Use"];
+    for(let i = 0; i < controlLabels.length; i++){
+      let y = 250 + i * 40;
+      if(mouseX > width / 2 - 100 && mouseX < width / 2 + 100 && mouseY > y - 15 && mouseY < y + 15){
+        changingKey = controlKeys[i];
+      }
+    }
+  }
+  // 更新
+  else if (gameState === "upgrade") {
+    for(let btn of upgradeButtons){
+      btn.checkClick();
+    }
+  }
+}
+
+新类：
+class upgradeButton extends Button {
+  constructor(x, y, label, action) {
+    super(x, y, label, action);
+    this.w = 300; // 变大宽度
+    this.h = 450; // 变大高度
+  }
+}
+
+新函数：
+let upgradeButtons = [];
+function drawUpgrade() {
+  upgradeButtons.push(new upgradeButton(50, 75, "Increase Size", () => {
+    player.h = 60,
+    gameState = "playing"
+  }));
+  upgradeButtons.push(new upgradeButton(450, 75, "Double Jump", () => {
+    player.canDoubleJump = True,
+    gameState = "playing"
+  }));
+
+  fill(0, 150);
+  rect(200, 150, 400, 300, 20);
+  fill(250);
+  textSize(24);
+  text("Select an upgrade option", 400, 180);
+  
+  for (let btn of upgradeButtons) {
+    btn.display();
+  }
+}
