@@ -1,5 +1,6 @@
 更新的内容：
 
+//更新了当状态为"Upgrade"时的鼠标点击
 function mousePressed(){
   if(gameState === "menu"){
     for(let btn of buttons){
