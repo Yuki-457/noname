@@ -193,4 +193,7 @@ function drawMenu(){
 }
 
 ---------------------------------------------------------------------------------------------------
-
+function preload(){  
+coverImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/cover.PNG");
+  logo2Img = 
+loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/logo2.PNG");
