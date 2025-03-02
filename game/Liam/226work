@@ -1,0 +1,1345 @@
+//新增class: "hammer", "coinmonster"
+//新增variable: "triggerdist","chasingspeed","hammerImg","coinmonsterImg"
+//新增function: "closetoplayer"
+//更新class Scene: 新增"addHammer", "addCoinmonster", hammers[], coinmonsters[], 修改update(), display()
+//更新preload: 新增"hammerImg","coinmonsterImg"
+//setup中在scene[0]加入測試擺錘跟金幣怪測試,正常工作
+//已知問題: 擺錘撞擊傷害判定有點問題,找不到準確座標
+let bgImage, blockImage, blockImage2, spikeImage, playerImage, groundImage, portalImgClosed, portalImgOpened, playerImg1, playerImg2, pipeImg, monsterImg1, bulletImg, turretImg, coinImg, hammerImg, coinmonsterImg;
+
+let buttons = [];
+let gameState = "menu";
+let volume = 5;
+let controls = {left:'A', right:'D', attack:'J', jump:'K', item:'I', pause:'P', use:'E'};
+let controlKeys = Object.keys(controls);
+let changingKey = null;
+let titleFontSize = 48;
+let titleY;
+let groundHeight = 150;
+let sceneIndex = 0;
+let goldCoins = 0;
+let level = 1;
+let exp = 0;
+let elapsedTime = 0;
+let portals = [];
+let unlockedPortals = [];
+let isChoosingPortal = false;
+let selectedPortalIndex = 0;
+let spikes = [];
+let currentSpawnPoint = null;
+let platforms = [];
+let coins = [];
+let enemies = [];
+let scenes = [];
+let maxScenes = 3;
+let hiddenScenes = [];
+let hiddenSceneIndex = 0;
+let inHiddenScene = false;
+let hiddenMaxScenes = 3;
+//誘發金幣怪距離
+let triggerdist = 100;
+//追尾速度
+let chasingspeed = 3;
+
+
+function setup() {
+  //建立畫布
+  createCanvas(800, 600);
+  textAlign(CENTER, CENTER);
+  titleY = height / 4;//设置标题位置
+  sceneIndex = 0;
+  
+  //建立按鈕
+  let startY = height / 2;
+  
+  buttons.push(new Button(width / 2 - 100, height / 2 - 60, "New Start", () => gameState = "playing"));
+  buttons.push(new Button(width / 2 - 100, height / 2, "Continue", () => console.log("Load Game")));
+  buttons.push(new Button(width / 2 - 100, height / 2 + 60, "Setting", () => gameState = "settings"));
+  buttons.push(new Button(width / 2 - 100, height / 2 + 120, "Exit", () => noLoop()));
+  //按钮位置
+  
+  //創建玩家
+  player = new Player(50, height - groundHeight - 40);
+  //portals.push(new Portal(100, height - groundHeight - 60));
+  //currentSpawnPoint = {x: 100, y: height - groundHeight - 50};
+  //spikes.push(new Spike(250, height - groundHeight, 50));
+  
+  //建立場景 (Scene)
+  for(let i = 0; i <= maxScenes; i++){
+    scenes.push(new Scene());
+  }
+  
+  //設定第一個場景 (scenes[0])
+  scenes[0].addPlatform(450, height - groundHeight - 130, 30, true);
+  scenes[0].addPlatform(480, height - groundHeight - 130, 30, true);
+  scenes[0].addPlatform(510, height - groundHeight - 130, 30, true);
+  scenes[0].addPlatform(540, height - groundHeight - 130, 30, true);
+  scenes[0].addEnemy(400, height - groundHeight - 25, 25, 25, 2, 400, 700);
+  scenes[0].addSpike(250, height - groundHeight, 50);
+  
+  //測試
+  scenes[0].addHammer(400, 300, 0.05);
+  scenes[0].addCoinmonster(100, 300, 25, 25, 400, 1000);
+  //測試
+  //scenes[0].addCoin(460, height - groundHeight - 160);
+  
+  let portal1 = scenes[0].addPortal(100, height - groundHeight - 60, "main", 0);
+  lastCheckPoint = { x: portal1.x, y: portal1.y, scene: 0 };
+  
+  //設定第二個場景 (scenes[1])
+  scenes[1].addCliff(150, 200);
+  scenes[1].addCliff(250, 300);
+  
+  scenes[1].addTurret(165, height - 20);
+  scenes[1].addTurret(265, height - 20);
+  
+  for(let x = 150; x <= 270; x += 30){
+    scenes[1].addPlatform(x, height - groundHeight - 240, 30, false);
+  }
+  
+  for(let x = 150; x <= 270; x += 30){
+    scenes[1].addCoin(x + 15, height - groundHeight - 260, false);
+  }
+  //方块阵列
+  //上下兩側方塊條
+  for(let i = 0; i < 4; i++){
+    
+    let xPos = 450 + i * 30; // 計算 X 座標
+
+    if (i === 1 || i === 2) { 
+        scenes[1].addBreakableBlock(xPos, height - groundHeight - 100, 30);
+    } else {
+        scenes[1].addPlatform(xPos, height - groundHeight - 100, 30, false);
+    }
+    scenes[1].addPlatform(450 + i * 30, height - groundHeight - 220, 30, false);
+  }
+  
+  //左右兩側方塊條
+  
+  for(let i = 0; i < 5; i++){
+    scenes[1].addPlatform(450, height - groundHeight -(100 + i * 30), 30, false);
+    scenes[1].addPlatform(540, height - groundHeight -(100 + i * 30), 30, false);
+  }
+  
+  for(let i = 1; i < 3; i++){
+    for(let j = 0; j < 3; j++){
+      scenes[1].addCoin(450 + i * 30 + 15, height - groundHeight -(100 + j * 30 + 15), false);
+    }
+  }
+  
+  /*for(let i = 0; i < 4; i++){
+    scenes[1].addBreakableBlock(450 + i * 30, 130, 30);
+  }*/
+  
+  scenes[1].addPipe(650, height - groundHeight - 110, 75, 110);
+  
+  hiddenScenes = [];
+  for(let i = 0; i < hiddenMaxScenes; i++){
+    hiddenScenes.push(new Scene());
+  }
+  
+  let hiddenPortal = hiddenScenes[0].addPortal(100, height - groundHeight - 60, "hidden", 0);
+ // hiddenPortal.unlocked = true;
+  //unlockedPortals.push(hiddenPortal);
+  
+}
+
+function draw() {
+  background(240);
+  
+  if(gameState === "menu"){
+    drawMenu();
+  }
+  else if(gameState === "settings"){
+    drawSettings();
+  }
+  else if(gameState === "playing"){
+    drawGame();
+  }
+  else if(gameState === "upgrade"){
+    drawUpgrade();
+  }
+}
+
+function drawMenu(){
+  //設定背景顏色
+  background(240);
+  //設定字體顏色,這邊設定text
+  fill(50);
+  //設定字體大小
+  textSize(titleFontSize);
+  text("Dukat Soul", width / 2, titleY);
+  
+  //顯示所有按鈕
+  //for of迴圈,拿來遍歷的,這樣寫可以簡單地在每一次迴圈中順序帶入array中的元素並執行行為
+  //在這邊就是讓每個按鍵display而已
+  for (let btn of buttons) {
+    btn.display();
+  }
+}
+
+function drawGame(){
+  image(bgImage, 0, 0, width, height);
+  
+  
+  noStroke();
+  image(groundImage, 0, height - groundHeight, width, groundHeight)
+  
+  rect(0, height - groundHeight, width, groundHeight);
+  fill(90, 194, 108);
+  if(inHiddenScene){
+    for(let cliff of hiddenScenes[hiddenSceneIndex].cliffs){
+      rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
+    }
+    
+  } else {
+    for(let cliff of scenes[sceneIndex].cliffs){
+      rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
+    }
+  }
+  
+  
+  //for(let portal of portals){
+    //portal.update();
+   // portal.display();
+  //}
+  
+  
+  
+  /*for(let spike of spikes){
+    spike.update();
+    spike.display();
+  }
+  
+  
+  for(let platform of platforms){
+    platform.update();
+    platform.display();
+  }
+  
+  for(let coin of coins){
+    coin.update();
+    coin.display();
+  }
+  
+  for(let enemy of enemies){
+    enemy.update();
+    enemy.display();
+  }
+  
+  */
+  if(inHiddenScene){
+    hiddenScenes[hiddenSceneIndex].update();
+    hiddenScenes[hiddenSceneIndex].display();
+  }
+  else{
+    scenes[sceneIndex].update();
+    scenes[sceneIndex].display();
+  }
+  
+  player.update();
+  player.display();
+  drawHUD();
+  
+  //fill(0);
+  //textSize(20);
+  //text(`Scene: ${sceneIndex}`, width - 80, 30);
+  
+  if(isChoosingPortal){
+    drawPortalSelection();
+  }
+}
+
+class Platform{
+  constructor(x, y, size, hasCoin = true){
+    this.x = x;
+    this.y = y + 14;
+    //平台大小
+    this.size = size;
+    //是否有金幣
+    this.hasCoin = hasCoin;
+  }
+  //隨時更新玩家有沒有撞到磚塊
+  update(){
+/*    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       //player.y == this.y + this.size && player.velocityY < 0){
+       //player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
+       player.y <= this.y + this.size && player.y >= this.y && player.velocityY < 0){
+      player.velocityY = 0;
+      if(this.hasCoin){
+        let newCoin = new Coin(this.x + this.size / 2, this.y - 10);
+        scenes[sceneIndex].coins.push(new Coin(this.x + this.size / 2, this.y - 10));
+        this.hasCoin = false;
+      }
+    }
+    
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y + player.h >= this.y && player.y + player.h - player.velocityY < this.y + 5 &&
+       player.velocityY > 0){
+      player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+    }
+    
+//    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+ //      player.y + player.h > this.y && player.velocityY > 0){
+   //   player.y = this.y - player.h;
+     // player.velocityY = 0;
+     // player.onGround = true;
+    //}
+*/    
+    
+    //some()會檢查這個平台的正上方有沒有其他平台,若有就不能穿過
+    //scenes[sceneIndex].platform是一個存platform的陣列
+    //some()是內建函數,它的功能是檢查陣列中是否有至少一個元素符合條件。所以當遍歷platform矩陣中的元素時,相當於檢查所以地圖上的平台
+    //若符合條件,則返回true
+    //這邊some裡面的platform跟for(let platform of platforms)的概念一樣,都是拿來遍歷元素的,不用另外宣告
+    //platform =>這個是宣告我要用platform來代表元素
+    //platform.x === this.x 表示遍歷全部platfor看有沒有跟現在這個platform x座標一樣的,這個this.x是Platform這個類的x座標
+    let hasBlockAbove = scenes[sceneIndex].platforms.some(platform => 
+      platform.x === this.x && platform.y === this.y - this.size
+    );
+    
+    //檢查是否從側邊撞到方塊
+    //如果撞到1.velocityX=0,停止水平移動
+    //2.重設player.x防止穿透
+    if (player.y + player.h > this.y && player.y < this.y + this.size) {
+      // **人物从右侧撞到方块**
+      let nextX = player.x + player.velocityX; // 预测下一帧 X 位置
+      if (player.velocityX > 0 && player.prevX + player.w <= this.x && nextX + player.w > this.x) {
+        player.x = this.x - player.w;
+        player.velocityX = 0;
+      }
+      // **人物从左侧撞到方块**
+      if (player.velocityX < 0 && player.prevX >= this.x + this.size && nextX < this.x + this.size) {
+        player.x = this.x + this.size;
+        player.velocityX = 0;
+      }
+    }
+    
+    if (player.x + player.w > this.x && player.x < this.x + this.size &&
+        player.y < this.y + this.size && player.prevY >= this.y + this.size &&
+        player.velocityY < 0) {
+      player.y = this.y + this.size;
+      player.velocityY = 0;
+      
+      if (this.hasCoin) {
+        scenes[sceneIndex].coins.push(new Coin(this.x + this.size / 2, this.y - 10));
+        this.hasCoin = false;
+      }
+      return; 
+    }
+    
+    //檢查玩家是否從 "上方" 站在平台上,是否從上方掉到平台上
+    if (!hasBlockAbove && player.x + player.w > this.x && player.x < this.x + this.size &&
+        player.y + player.h > this.y && player.prevY + player.h <= this.y &&
+        player.velocityY > 0) {
+      //重設玩家Y位置
+      player.y = this.y - player.h;
+      //重設下落速度,velocityY是下落速度(>0落下,<0跳起來)
+      player.velocityY = 0;
+      //表示玩家站在平台上
+      player.onGround = true;
+      //避免執行其他動作
+      return;
+    }
+    
+    
+  }
+  //繪製平台
+  display(){
+    image(blockImage, this.x, this.y, this.size, this.size);
+  }
+}
+
+class Coin{
+  constructor(x, y, hasGravity = true){
+    //位置
+    this.x = x - 7;
+    this.y = y + 7;
+    //尺寸
+    this.size = 15;
+    //有沒有被吃掉
+    this.collected = false;
+    //重力,會不會飄?
+    this.hasGravity = hasGravity;
+    //初始垂直速度 (若受重力影響，初始速度為 -2),若無重力則0
+    //判斷hasGravity為T或F
+    this.velocityY = hasGravity ? -2 : 0;
+    //重力加速度 (0.5 表示每幀增加速度),若無重力則0
+    this.gravity = hasGravity ? 0.5 : 0;
+  }
+  //收集邏輯
+  update(){
+    //若為真,金幣受重力影響
+    if(this.hasGravity){
+      this.velocityY += this.gravity;
+      this.y += this.velocityY;
+    }
+    //檢測玩家是否收集金幣
+    //判斷人物座標有沒有碰到金幣座標
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y + player.h > this.y && player.y < this.y + this.size &&
+       !this.collected){
+      this.collected = true;
+      collection();
+      
+      //刪除金幣
+      //indexof是判斷式,判斷在這個陣列中有沒有指定元素,有就回傳index,沒有就回傳-1
+      let index = scenes[sceneIndex].coins.indexOf(this);
+      if(index > -1){
+        scenes[sceneIndex].coins.splice(index, 1);
+      }
+    }
+  }
+  //有沒有顯示
+  display(){
+    if(!this.collected){
+      image(coinImg, this.x, this.y, this.size, this.size);
+    }
+  }
+}
+
+class Spike{
+  constructor(x, y, w){
+    this.x = x;
+    this.y = height - groundHeight + 14;
+    this.w = w;
+    this.h = 15;
+    this.visible = false;
+  }
+  
+  update(){
+    if(dist(player.x + 20, player.y + 30, this.x + this.w / 2, this.y) < 70){
+      this.visible = true;
+    }
+    
+    if(this.visible && this.isCollidingWithPlayer()){
+      respawnPlayer();
+      this.visible = false;
+      
+    }
+  }
+  
+  display(){
+    if(this.visible){
+      image(spikeImage, this.x, this.y - this.h, this.w, this.h);
+      //triangle(this.x, this.y, this.x + this.w / 2, this.y - this.h, this.x + this.w, this.y);
+    }
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.w && player.x + player.w > this.x && 
+           player.y + player.h > this.y - this.h);
+  }
+}
+
+function respawnPlayer(){
+  if(lastCheckPoint){
+    if(lastCheckPoint.sceneType === "hidden"){
+      inHiddenScene = true;
+      hiddenSceneIndex = lastCheckPoint.scene;
+    }
+    else{
+      inHiddenScene = false;
+      sceneIndex = lastCheckPoint.scene;
+    }
+    player.x = lastCheckPoint.x;
+    player.y = lastCheckPoint.y;
+    
+  }
+  else{
+    inHiddenScene = false;
+    sceneIndex = 0;
+    player.x = 50;
+    player.y = height - groundHeight - 40;
+  }
+    
+  exp = 0;
+  
+  let scene = scenes[sceneIndex];
+  
+  for(let coin of scene.coins){
+    coin.collected = false;
+  }
+  scene.coins = [];
+  
+  for(let spike of scene.spikes){
+    spike.visible = false;
+  }
+  for(let platform of platforms){
+    platform.hasCoin = true;
+    //scene.coins.push(new Coin(platform.x + platform.size / 2, platform.y - 10));
+  }
+  
+  
+  //scene.enemies = [];
+  //scene.spikes = [];
+  setupNextScene();
+}
+
+function drawPortalSelection(){
+  fill(0, 150);
+  rect(200, 150, 400, 300, 20);
+  fill(250);
+  textSize(24);
+  text("Select a Portal", 400, 180);
+  
+  for(let i = 0; i < unlockedPortals.length; i++){
+    let portal = unlockedPortals[i];
+    fill(i === selectedPortalIndex ? "yellow" : "white");
+    let label = portal.sceneType === "main" ? "Main" : "Hidden"
+    text(`${label} Scene ${portal.sceneIndex + 1}`, 400, 220 + i * 40);
+  }
+  
+  textSize(16);
+  fill(200);
+  text("↑/↓ to navigate, E to confirm, ESC to cancel", 400, 420);
+}
+
+function drawHUD(){
+  fill(255);
+  textSize(16);
+  
+  text(`Level ${level}`, 80, 30);
+  fill("gold");
+  rect(20, 40, (exp / 10) * 100, 10);
+  noFill();
+  stroke(255);
+  rect(20, 40, 100, 10);
+  
+  let timeElapsed = Math.floor(millis() / 1000);
+  text(`Time: ${timeElapsed}s`, width - 80, 30);
+}
+
+class Portal{
+  constructor(x, y, sceneType, sceneIndex){
+    this.x = x;
+    this.y = y + 14;
+    this.w = 60;
+    this.h = 60;
+    this.unlocked = false;
+    this.sceneType = sceneType;
+    this.sceneIndex = sceneIndex;
+  }
+  
+  update(){
+    if(!this.unlocked && this.isCollidingWithPlayer()){
+      this.unlocked = true;
+      if(!unlockedPortals.includes(this)){
+        unlockedPortals.push(this);
+      }
+      
+      goldCoins += 5;
+      exp += 5;
+      lastCheckPoint = { x: this.x, y: this.y, scene: inHiddenScene ? hiddenSceneIndex : sceneIndex, sceneType: inHiddenScene ? "hidden" : "main"};
+    }
+    
+    if(this.unlocked && this.isCollidingWithPlayer() && keyIsDown(controls.use.charCodeAt(0))){
+      isChoosingPortal = true;
+      selectedPortalIndex = 0;
+    }
+  }
+  
+  display(){
+    if(this.unlocked){
+      image(portalImgOpened, this.x, this.y, this.w, this.h);
+    }
+    else{
+      image(portalImgClosed, this.x, this.y, this.w, this.h);
+    }
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.w && player.x + player.w > this.x &&
+           player.y < this.y + this.h && player.y + player.h > this.y);
+  }
+}
+
+function teleport(targetPortal){
+  if(targetPortal){
+    player.x = targetPortal.x;
+    player.y = targetPortal.y;
+    
+    if(targetPortal.sceneType === "main"){
+      inHiddenScene = false;
+      sceneIndex = targetPortal.sceneIndex;
+    }
+    
+    else if(targetPortal.sceneType === "hidden"){
+      inHiddenScene = true;
+      hiddenSceneIndex = targetPortal.sceneIndex;
+    }
+    
+    lastCheckPoint = { x: targetPortal.x, y: targetPortal.y, scene: inHiddenScene ? hiddenSceneIndex : sceneIndex, sceneType: inHiddenScene ? "hidden" : "main"};
+    
+    setupNextScene();
+  }
+  
+  isChoosingPortal = true;
+}
+
+function collection(){
+  goldCoins += 1;
+  exp += 1;
+  if(exp >= 10){
+    exp -= 10;
+    level += 1;
+    gameState = "upgrade";
+  }
+}
+
+class Player{
+  constructor(x, y){
+    this.x = x;
+    this.y = y + 14;
+    this.w = 25;
+    this.h = 40;
+    this.speed = 3;
+    this.gravity = 0.5;
+    this.jumpPower = -Math.sqrt(2 * this.gravity * 150);
+    this.velocityX = 0;
+    this.velocityY = 0;
+    this.onGround = false;
+    this.canDoubleJump = false;
+    this.hasDoubleJumped = false;
+    
+    this.facingRight = true;
+    this.frameCounter = 0;
+    this.imageIndex = 0;
+  }
+  
+  update(){
+    this.prevX = this.x;
+    this.prevY = this.y;
+    
+    let moving = false;
+    this.velocityX = 0;
+    
+    if(keyIsDown(controls.left.charCodeAt(0))){
+      this.velocityX = -this.speed;
+      this.facingRight = false;
+      moving = true;
+    }
+    if(keyIsDown(controls.right.charCodeAt(0))){
+      this.velocityX = this.speed;
+      this.facingRight = true;
+      moving = true;
+    }
+    
+    if(keyIsDown(controls.jump.charCodeAt(0))){
+      if(this.onGround){
+        this.velocityY = this.jumpPower;
+        this.onGround = false;
+        this.hasDoubleJumpes = false;
+      }
+      else if(this.canDoubleJump && !this.hasDoubleJumped){
+        this.velocityY = this.jumpPower * 0.9;
+        this.hasDoubleJumped = true;
+      }
+    }
+    
+    checkFallDeath();
+    
+    if(!this.onGround){
+      this.velocityY += this.gravity;
+    }
+    
+    this.x += this.velocityX;
+    this.y += this.velocityY;
+    
+    
+     
+    if (!isPlayerOverCliff() && this.y >= height - groundHeight + 14 - this.h) {
+      this.y = height - groundHeight + 14 - this.h;
+      this.velocityY = 0;
+      this.onGround = true;
+      this.hasDoubleJumped = false;
+    } else {
+      this.onGround = false;
+    }
+
+    this.checkSceneTransition();
+    
+    this.x = constrain(this.x, 0 - this.w / 2, width - this.w / 2);
+  }
+  
+  if(moving){
+    this.frameCounter++;
+    if(this.frameCounter >= 10){
+      this.imageIndex = 1 - this.imageIndex;
+      this.frameCounter = 0;
+    }
+    else{
+      this.imageIndex = 0;
+    }
+  }
+  
+  checkSceneTransition(){
+    let centerX = this.x + this.w / 2;
+    if(inHiddenScene){
+      if(centerX >= width && hiddenSceneIndex < hiddenMaxScenes - 1){
+        hiddenSceneIndex++;
+        this.x = - this.w / 2 + 1
+        setupNextScene();
+      }
+    
+      else if(centerX <= 0 && hiddenSceneIndex > 0){
+        hiddenSceneIndex--;
+        this.x = width - this.w / 2;
+        setupNextScene();
+      }
+      
+      else{
+        if(hiddenSceneIndex === 0 && centerX <= 0){
+         this.x = - this.w / 2; + 1
+        }
+      
+        if(hiddenSceneIndex === hiddenMaxScenes - 1 && centerX >= width){
+          this.x = width - this.w / 2;
+        }
+      }
+    }
+    else{
+      if(centerX >= width && sceneIndex < maxScenes - 1){
+        sceneIndex++;
+        this.x = - this.w / 2 + 1
+        setupNextScene();
+      }
+    
+      if(centerX <= 0 && sceneIndex > 0){
+        sceneIndex--;
+        this.x = width - this.w / 2;
+        setupNextScene();
+      }
+    }
+  }
+  
+  display(){
+    let imgToShow = this.imageIndex === 0 ? playerImg1 : playerImg2;
+    
+    if(!this.facingRight){
+      push();
+      scale(-1, 1);
+      image(imgToShow, -this.x - this.w, this.y, this.w, this.h);
+      pop();
+    }
+    else{
+      image(imgToShow, this.x, this.y, this.w, this.h);
+    }
+  }
+}
+
+function drawSettings(){
+  fill(50);
+  textSize(32);
+  text("Settings", width / 2, 50);
+  
+  textSize(24);
+  text("Volume", width / 2, 150);
+  text(volume, width / 2, 180);
+  rect(width / 2 - 70, 170, 30, 30);
+  rect(width / 2 + 40, 170, 30, 30);
+  text("-", width / 2 - 55, 185);
+  text("+", width / 2 + 55, 185);
+  
+  let controlLabels = ["Left", "Right", "Attack", "Jump", "Item", "Pause", "Use"];
+  let keys = Object.values(controls);
+  
+  for(let i = 0; i < controlLabels.length; i++){
+    let y = 250 + i * 40;
+    
+    let displayText = changingKey === controlKeys[i] ? "Press any key..." : `${controlLabels[i]}: ${keys[i]}`;
+    
+    if(changingKey === controlKeys[i]){
+      fill(255, 0, 0);
+    }
+    else{
+      fill(0);
+    }
+    text(displayText, width / 2, y);
+    
+    stroke(0);
+    noFill();
+    rect(width / 2 - 100, y - 15, 200, 30);
+  }
+  
+  textSize(20);
+  text("Press any key to change setting", width / 2, 520);
+  text("Press ESC to return", width / 2, 550);
+}
+
+function mousePressed(){
+  if(gameState === "menu"){
+    for(let btn of buttons){
+      btn.checkClick();
+    }
+  }
+  else if(gameState === "settings"){
+    if(mouseX > width / 2 - 70 && mouseX < width / 2 - 40 && mouseY > 170 && mouseY < 200){
+      volume = max(0, volume - 1);
+    }
+    if(mouseX > width / 2 + 40 && mouseX < width / 2 + 70 && mouseY > 170 && mouseY < 200){
+      volume = min(10, volume + 1);
+    }
+    
+    let controlLabels = ["Left", "Right", "Attack", "Jump", "Item", "Pause", "Use"];
+    for(let i = 0; i < controlLabels.length; i++){
+      let y = 250 + i * 40;
+      if(mouseX > width / 2 - 100 && mouseX < width / 2 + 100 && mouseY > y - 15 && mouseY < y + 15){
+        changingKey = controlKeys[i];
+      }
+    }
+  }
+}
+
+function keyPressed(){
+  if(gameState === "settings"){
+    if(keyCode === ESCAPE){
+      changingKey = null;
+      gameState = "menu";
+    }
+    else if(changingKey){
+      controls[changingKey] = key.toUpperCase();
+      changingKey = null;
+    }
+  }
+  
+  else if(isChoosingPortal){
+    if(keyCode === UP_ARROW){
+      selectedPortalIndex = (selectedPortalIndex - 1 + unlockedPortals.length) % unlockedPortals.length;
+    }
+    else if(keyCode === DOWN_ARROW){
+      selectedPortalIndex = (selectedPortalIndex + 1) % unlockedPortals.length;
+    }
+    else if(keyCode === controls.use.charCodeAt(0)){
+      teleport(unlockedPortals[selectedPortalIndex]);
+      isChoosingPortal = false;
+    }
+    else if(keyCode === ESCAPE){
+      isChoosingPortal = false;
+    }
+  }
+}
+
+class Button{
+  constructor(x, y, label, action){
+    this.x = x;
+    this.y = y;
+    this.label = label;
+    this.action = action;
+    this.w = 200;
+    this.h = 50;
+    this.defaultColor = color(200);
+    this.hoverColor = color(150);
+    this.currentColor = this.defaultColor;
+  }
+  
+  display(){
+    if(this.isHovered()){
+      this.currentColor = this.hoverColor;
+    }
+    else{
+      this.currentColor = this.defaultColor;
+    }
+    
+    fill(this.currentColor);
+    stroke(0);
+    rect(this.x, this.y, this.w, this.h, 10);//圆角矩形
+    
+    fill(0);
+    textSize(24);
+    text(this.label, this.x + this.w / 2, this.y + this.h / 2);
+  }
+  
+  isHovered(){
+    return mouseX > this.x && mouseX < this.x + this.w && mouseY > this.y && mouseY < this.y + this.h;
+  }
+  
+  checkClick(){
+    if(this.isHovered()){
+      this.action();
+    }
+  }
+}
+
+class Enemy{
+  constructor(x, y, w, h, speed, minX, maxX){
+    this.x = x;
+    this.y = y + 12;
+    this.w = w;
+    this.h = h;
+    this.speed = speed;
+    this.minX = minX;
+    this.maxX = maxX;
+    this.direction = 1;
+  }
+  
+  update(){
+    this.x += this.speed * this.direction;
+    
+    if(this.x >= this.maxX || this.x <= this.minX){
+      this.direction *= -1;
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    push();
+    if(this.direction < 0){
+      image(monsterImg1, this.x, this.y, this.w, this.h);
+    }
+    else{
+      translate(this.x + this.w, this.y);
+      scale(-1, 1);
+      image(monsterImg1, 0, 0, this.w, this.h);
+    }
+    pop();
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.w && player.x + player.w > this.x &&
+           player.y < this.y + this.h && player.y + player.h > this.y);
+  }
+}
+
+function setupNextScene(){
+  if(inHiddenScene){
+    console.log(`Switch to Hidden Scene ${hiddenSceneIndex}`);
+  
+    spikes = hiddenScenes[hiddenSceneIndex].spikes;
+    enemies = hiddenScenes[hiddenSceneIndex].enemies;
+    platforms = hiddenScenes[hiddenSceneIndex].platforms;
+    coins = hiddenScenes[hiddenSceneIndex].coins;
+    portals = hiddenScenes[hiddenSceneIndex].portals;
+  }
+  else{
+    console.log(`Switch to Scene ${sceneIndex}`);
+  
+    spikes = scenes[sceneIndex].spikes;
+    enemies = scenes[sceneIndex].enemies;
+    platforms = scenes[sceneIndex].platforms;
+    coins = scenes[sceneIndex].coins;
+    portals = scenes[sceneIndex].portals;
+  }
+  
+}
+
+class Scene{
+  constructor(){
+    this.platforms = [];
+    this.coins = [];
+    this.spikes = [];
+    this.enemies = [];
+    this.portals = [];
+    this.turrets = [];
+    this.bullets = [];
+    this.cliffs = [];
+    this.breakableBlocks = [];
+    this.pipes = [];
+    //hammer矩陣
+    this.hammers=[];
+    //coinmonster矩陣
+    this.coinmonsters=[];
+  }
+  
+  addPlatform(x, y, size){
+    this.platforms.push(new Platform(x, y, size));
+  }
+  
+  addCoin(x, y, hasGravity = true){
+    this.coins.push(new Coin(x, y, hasGravity));
+  }
+  
+  addSpike(x, y, w){
+    this.spikes.push(new Spike(x, y, w));
+  }
+  
+  addEnemy(x, y, w, h, speed, minX, maxX){
+    this.enemies.push(new Enemy(x, y, w, h, speed, minX, maxX));
+  }
+  
+  addPortal(x, y, sceneType, sceneIndex){
+    let portal = new Portal(x, y, sceneType, sceneIndex);
+    this.portals.push(portal);
+    return portal;
+  }
+  
+  addTurret(x, y){
+    this.turrets.push(new Turret(x, y));
+  }
+  
+  addBullet(x, y, speed){
+    this.bullets.push(new Bullet(x, y, speed));
+  }
+  
+  addCliff(startX, endX){
+    this.cliffs.push({ startX, endX });
+  }
+  
+  addBreakableBlock(x, y, size){
+    let block = new BreakableBlock(x, y, size,blockImage2);
+    this.breakableBlocks.push(block);
+  }
+  
+  addPipe(x, y, w, h){
+    this.pipes.push(new Pipe(x, y, w, h));
+  }
+  
+  //測試
+  //加擺錘
+  addHammer(RotateX, RotateY, Speed){
+    this.hammers.push(new hammer(RotateX, RotateY, Speed));
+  }
+  //加金幣怪
+  addCoinmonster(x, y, w, h, minX, maxX){
+    this.coinmonsters.push(new coinmonster(x, y, w, h, minX, maxX));
+  }
+  //測試
+  
+  update(){
+    for(let platform of this.platforms) platform.update();
+    for(let coin of this.coins) coin.update();
+    for(let spike of this.spikes) spike.update();
+    for(let enemy of this.enemies) enemy.update();
+    for(let portal of this.portals) portal.update();
+    for(let turret of this.turrets) turret.update();
+    for(let bullet of this.bullets) bullet.update();
+    for(let block of this.breakableBlocks) block.update();
+    for(let pipe of this.pipes) pipe.update();
+    //新增更新hammer
+    for(let hammer of this.hammers) hammer.update();
+    //新增更新金幣怪
+    for(let coinmonster of this.coinmonsters) coinmonster.update();
+  }
+  
+  display(){
+    for(let platform of this.platforms) platform.display();
+    for(let coin of this.coins) coin.display();
+    for(let spike of this.spikes) spike.display();
+    for(let enemy of this.enemies) enemy.display();
+    for(let portal of this.portals) portal.display();
+    for(let turret of this.turrets) turret.display();
+    for(let bullet of this.bullets) bullet.display();
+    for(let block of this.breakableBlocks) block.display();
+    for(let pipe of this.pipes) pipe.display();
+    //新增顯示hammer
+    for(let hammer of this.hammers) hammer.display();
+    //新增顯示金幣怪
+    for(let coinmonster of this.coinmonsters) coinmonster.display();
+  }
+}
+
+class Turret{
+  constructor(x, y){
+    this.x = x;
+    this.y = y;
+    this.fireRate = 60;
+    this.timer = 0;
+    this.w = 30;
+    this.h = 30;
+  }
+  
+  update(){
+    this.timer++;
+    if(this.timer >= this.fireRate){
+      scenes[sceneIndex].bullets.push(new Bullet(this.x + 10, this.y, -2));
+      this.timer = 0;
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    image(turretImg, this.x, this.y, this.w, this.h);
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + 20 && player.x + player.w > this.x &&
+           player.y < this.y + 20 && player.y + player.h > this.y);
+  }
+}
+
+class Bullet{
+  constructor(x, y, speed){
+    this.x = x;
+    this.y = y;
+    this.speed = speed;
+    this.size = 10;
+  }
+  
+  update(){
+    this.y += this.speed;
+    if(this.y < 0){
+      let index = scenes[sceneIndex].bullets.indexOf(this);
+      if(index > -1){
+        scenes[sceneIndex].bullets.splice(index, 1);
+      }
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    image(bulletImg, this.x, this.y, this.size, this.size);
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.size && player.x + player.w > this.x &&
+           player.y < this.y + this.size && player.y + player.h > this.y);
+  }
+}
+
+class BreakableBlock{
+  constructor(x, y, size, image){
+    this.x = x;
+    this.y = y + 14 ;
+    this.size = size;
+    this.image = image;
+    this.exists = true;
+    
+  }
+  
+  update(){
+    if(!this.exists) return;
+    
+    if (player.x + player.w > this.x && player.x < this.x + this.size &&
+        player.y < this.y + this.size && player.prevY >= this.y + this.size &&
+        player.velocityY < 0) {
+      player.y = this.y + this.size;
+      this.exists = false;
+      player.velocityY = 0;
+      return;
+    }
+    
+    if (player.y + player.h > this.y && player.y < this.y + this.size) {
+      // **人物从右侧撞到方块**
+      let nextX = player.x + player.velocityX; // 预测下一帧 X 位置
+      if (player.velocityX > 0 && player.prevX + player.w <= this.x && nextX + player.w > this.x) {
+        player.x = this.x - player.w;
+        player.velocityX = 0;
+      }
+      // **人物从左侧撞到方块**
+      if (player.velocityX < 0 && player.prevX >= this.x + this.size && nextX < this.x + this.size) {
+        player.x = this.x + this.size;
+        player.velocityX = 0;
+      }
+    }
+  }
+  
+  display(){
+    if(!this.exists) return;
+    
+    if(this.image){
+      image(this.image, this.x,this.y,this.size, this.size);
+    }else{
+    
+    fill(150, 75, 0);
+    rect(this.x, this.y, this.size, this.size);
+    }
+  }
+}
+function checkFallDeath(){
+  let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+  let isOverCliff = false;
+  for(let cliff of currentScene.cliffs){
+    if(player.x > cliff.startX && player.x + player.w < cliff.endX){
+      isOverCliff = true;
+      break;
+    }
+  }
+  
+  if(isOverCliff && player.onGround){
+    player.onGround =  false;
+    player.velocityY = 0;
+  }
+}
+
+function isPlayerOverCliff(){
+  let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+  
+  for(let cliff of currentScene.cliffs){
+    if(player.x > cliff.startX && player.x + player.w < cliff.endX + player.speed){
+      return true;
+    }
+  }
+  return false;
+}
+
+class Pipe{
+  constructor(x, y, w, h){
+    this.x = x;
+    this.y = y + 14;
+    this.w = w;
+    this.h = h;
+  }
+  
+  update(){
+    if(player.x + player.w > this.x && player.x < this.x + this.w &&
+       player.y + player.h >= this.y && player.y + player.h - player.velocityY < this.y + 5 &&
+       player.velocityY > 0){
+      player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+    }
+    
+    if(player.y + player.h > this.y && player.y < this.y + this.h){
+      if (player.x + player.w > this.x && player.x < this.x + this.w / 2) {
+        player.x = this.x - player.w; // 左侧
+      } else if (player.x < this.x + this.w && player.x + player.w > this.x + this.w / 2) {
+        player.x = this.x + this.w; // 右侧
+      }
+    }
+    
+    if(player.y + player.h === this.y && keyIsDown(controls.use.charCodeAt(0))){
+      enterHiddenLevel();
+    }
+  }
+  
+  display(){
+    image(pipeImg, this.x, this.y, this.w, this.h);
+  }
+}
+
+function enterHiddenLevel(){
+  inHiddenScene = true;
+  hiddenSceneIndex = 0;
+  player.x = 50;
+  player.y = height - groundHeight - player.h;
+  
+  setupNextScene();
+}
+
+class hammer{
+
+  constructor(RotateX, RotateY, Speed){
+    this.diameterW = 20;
+    this.diameterH = 100;
+    this.x = RotateX; //旋轉中心x
+    this.y = RotateY; //旋轉中心y
+    this.angle = 0;
+    this.s = Speed;
+  }
+  
+  update(){
+    //旋轉動作(角度更新),供碰撞傷害計算座標使用
+    this.angle += this.s;
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  //碰撞傷害
+  //這邊有問題,座標抓不準
+  isCollidingWithPlayer(){
+    let hammerX = this.x + (this.diameterH / 2 - this.diameterW / 2) * cos(this.angle);
+    let hammerY = this.y + (this.diameterH / 2 - this.diameterW / 2) * sin(this.angle);
+    
+    let distance = dist(player.x + player.w / 2, player.y + player.h / 2, hammerX, hammerY);
+    return distance < (this.diameterW / 2 + player.h / 2);
+  }
+  
+  //顯示棒棒
+  display(){
+    push();
+    translate(this.x, this.y); // 設定旋轉中心
+    rotate(this.angle); // 讓擺錘旋轉,跟速度有關
+    imageMode(CENTER);
+    image(hammerImg, 0, 0, this.diameterW , this.diameterH); // 繪製擺錘 (擺錘擺動)
+    pop();
+  }
+}
+
+class coinmonster{
+  constructor(x, y, w, h, minX, maxX){
+    this.x = x;
+    this.y = y + 12;
+    this.w = w;
+    this.h = h;
+    this.size = 15;
+    this.speed = 0;
+    this.minX = minX;
+    this.maxX = maxX;
+    this.direction = 1;
+  }
+  
+  update(){
+    //是否夠靠近
+    if(closetoplayer(this.x, this.y)){
+      this.speed = chasingspeed;
+      //console.log("太靠近了！");
+      if(player.x > this.x) {
+        this.x += this.speed; // 向右移動
+        this.direction = 1;   // 方向設為向右
+      }else{
+        this.x -= this.speed; // 向左移動
+        this.direction = -1;  // 方向設為向左
+      }  
+    }else{
+      this.speed = 0;
+    }
+    
+    if(this.x >= this.maxX || this.x <= this.minX){
+      this.direction *= -1;
+    }
+    
+    if(this.isCollidingWithPlayer()){
+      respawnPlayer();
+    }
+  }
+  
+  display(){
+    push();
+    if(closetoplayer(this.x, this.y)){
+      if(this.direction < 0){
+        image(coinmonsterImg, this.x, this.y, this.size*2, this.size*2);
+      }
+      else{
+        translate(this.x + this.w, this.y);
+        scale(-1, 1);
+        image(coinmonsterImg, 0, 0, this.size*2, this.size*2);
+      }
+    }else{
+      image(coinImg, this.x, this.y, this.size, this.size);
+    }
+    pop();
+  }
+  
+  isCollidingWithPlayer(){
+    return(player.x < this.x + this.w && player.x + player.w > this.x &&
+           player.y < this.y + this.h && player.y + player.h > this.y);
+  }
+}
+
+//判定物件玩家距離是否夠小
+function closetoplayer(objX, objY){
+  return dist(player.x, player.y, objX, objY) <= triggerdist;
+}
+
+function preload(){
+  bgImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/BACKGROUND.JPG");
+  blockImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/BRICK1.PNG");
+  blockImage2 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/BRICK2.PNG");
+  groundImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/FLOOR.PNG");
+  spikeImage = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/SPIKE.PNG");
+  portalImgClosed = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/DOOR2.PNG");
+  portalImgOpened = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/DOOR1.PNG");
+  playerImg1 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/MaleCat1.PNG");
+  playerImg2 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/MaleCat2.PNG");
+  pipeImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/HollowTree.PNG");
+  monsterImg1 = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Monster1.png");
+  bulletImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Bullet.PNG");
+  turretImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Turret.PNG");
+  coinImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Can.png");
+  //導入hammer圖片
+  hammerImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/hammertest.png");
+  //導入金幣怪圖片
+  coinmonsterImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/CanMonster.png");
+}
