@@ -692,17 +692,7 @@ class Player{
       moving = true;
     }
     
-    if(keyIsDown(controls.jump.charCodeAt(0))){
-      if(this.onGround){
-        this.velocityY = this.jumpPower;
-        this.onGround = false;
-        this.hasDoubleJumpes = false;
-      }
-      else if(this.canDoubleJump && !this.hasDoubleJumped){
-        this.velocityY = this.jumpPower * 0.9;
-        this.hasDoubleJumped = true;
-      }
-    }
+    
     
     checkFallDeath();
     
@@ -713,14 +703,34 @@ class Player{
     this.x += this.velocityX;
     this.y += this.velocityY;
     
-    
+    let isOnPlatform = false;
+    let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+
+    for (let platform of currentScene.platforms) {
+        if (
+            this.x + this.w > platform.x && this.x < platform.x + platform.size &&
+            this.y + this.h >= platform.y && this.prevY + this.h <= platform.y + 5
+        ) {
+            this.y = platform.y - this.h;
+            this.velocityY = 0;
+            isOnPlatform = true;
+            break;
+        }
+    }
      
-    if (!isPlayerOverCliff() && this.y >= height - groundHeight + 14 - this.h) {
-      this.y = height - groundHeight + 14 - this.h;
+    if (isOnPlatform) {
+        this.onGround = true;
+        this.hasDoubleJumped = false;
+    } 
+    else if (!isPlayerOverCliff() && (this.y >= height - groundHeight + 14 - this.h || isOnPlatform)) {
+      this.y = isOnPlatform ? this.y : height - groundHeight + 14 - this.h;
       this.velocityY = 0;
-      this.onGround = true;
-      this.hasDoubleJumped = false;
-    } else {
+      if (!this.onGround) {
+        this.onGround = true;
+        this.hasDoubleJumped = false;  
+      }
+    } 
+    else {
       this.onGround = false;
     }
 
@@ -904,6 +914,17 @@ function keyPressed(){
       s.activate(); 
     }
   }
+  else if(keyCode === controls.jump.charCodeAt(0)){
+      if(player.onGround){
+        player.velocityY = player.jumpPower;
+        player.onGround = false;
+        player.hasDoubleJumped = false;
+      }
+      else if(player.canDoubleJump && !player.hasDoubleJumped){
+        player.velocityY = player.jumpPower * 0.9;
+        player.hasDoubleJumped = true;
+      }
+    }
 }
 
 class Button{
