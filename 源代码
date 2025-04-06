@@ -14,23 +14,23 @@ let goldCoins = 0;
 let level = 1;
 let exp = 0;
 let elapsedTime = 0;
-let portals = [];
+//let portals = [];
 let unlockedPortals = [];
 let isChoosingPortal = false;
 let selectedPortalIndex = 0;
-let spikes = [];
+//let spikes = [];
 let currentSpawnPoint = null;
-let platforms = [];
-let coins = [];
-let enemies = [];
+//let platforms = [];
+//let coins = [];
+//let enemies = [];
 let scenes = [];
 let maxScenes = 3;
 let hiddenScenes = [];
 let hiddenSceneIndex = 0;
 let inHiddenScene = false;
 let hiddenMaxScenes = 3;
-let difficultyButtons = []; // 存放難度選單的按鈕
-let difficulty = "easy"; // 預設為簡單模式
+let difficultyButtons = []; 
+let difficulty = "easy"; 
 let backButton;
 let upgradeButtons = [];
 
@@ -256,15 +256,9 @@ function drawGame(){
   
   rect(0, height - groundHeight, width, groundHeight);
   fill(90, 194, 108);
-  if(inHiddenScene){
-    for(let cliff of hiddenScenes[hiddenSceneIndex].cliffs){
-      rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
-    }
-    
-  } else {
-    for(let cliff of scenes[sceneIndex].cliffs){
-      rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
-    }
+  let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+  for (let cliff of currentScene.cliffs) {
+    rect(cliff.startX, height - groundHeight, cliff.endX - cliff.startX, groundHeight);
   }
   
   
@@ -297,14 +291,21 @@ function drawGame(){
   }
   
   */
-  if(inHiddenScene){
-    hiddenScenes[hiddenSceneIndex].update();
-    hiddenScenes[hiddenSceneIndex].display();
+  for (let s of scenes) {
+    s.update(); 
   }
-  else{
-    scenes[sceneIndex].update();
-    scenes[sceneIndex].display();
+  
+  for (let s of hiddenScenes) {
+    s.update(); 
   }
+  for (let s of hiddenScenes[0].chasingSpikes) {
+    s.update(); // 总是更新追踪刺
+  }
+  for (let s of hiddenScenes[0].chasingSpikes) {
+    s.display(); // 只绘制当前所在幕
+  }
+
+  currentScene.display();
   
   player.update();
   player.display();
@@ -320,14 +321,16 @@ function drawGame(){
 }
 
 class Platform{
-  constructor(x, y, size, hasCoin = true){
+  constructor(x, y, size, hasCoin = true, scene){
     this.x = x;
     this.y = y + 14;
     this.size = size;
     this.hasCoin = hasCoin;
+    this.scene = scene;
   }
   
   update(){
+    if (!isInCurrentScene(this.scene)) return;
 /*    if(player.x + player.w > this.x && player.x < this.x + this.size &&
        //player.y == this.y + this.size && player.velocityY < 0){
        //player.y - player.velocityY < this.y + this.size && player.y + player.velocityY < this.y + this.size){
@@ -355,7 +358,8 @@ class Platform{
      // player.onGround = true;
     //}
 */    
-    let hasBlockAbove = scenes[sceneIndex].platforms.some(platform => 
+    let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+    let hasBlockAbove = currentScene.platforms.some(platform =>
       platform.x === this.x && platform.y === this.y - this.size
     );
     
@@ -363,14 +367,14 @@ class Platform{
       // **人物从右侧撞到方块**
       let nextX = player.x + player.velocityX; // 预测下一帧 X 位置
       if (player.velocityX > 0 && player.prevX + player.w <= this.x + 1 && nextX + player.w > this.x) {
-        if (!scenes[sceneIndex].platforms.some(p => p !== this && p.x === this.x - this.size && p.y === this.y)) {
+        if (!currentScene.platforms.some(p => p !== this && p.x === this.x - this.size && p.y === this.y)) {
           player.x = this.x - player.w;
           player.velocityX = 0;
         }
       }
       // **人物从左侧撞到方块**
       if (player.velocityX < 0 && player.prevX >= this.x + this.size - 1 && nextX < this.x + this.size) {
-        if (!scenes[sceneIndex].platforms.some(p => p !== this && p.x === this.x + this.size && p.y === this.y)) {
+        if (!currentScene.platforms.some(p => p !== this && p.x === this.x + this.size && p.y === this.y)) {
           player.x = this.x + this.size;
           player.velocityX = 0;
         }
@@ -384,7 +388,7 @@ class Platform{
       player.velocityY = 0;
       
       if (this.hasCoin) {
-        scenes[sceneIndex].coins.push(new Coin(this.x + this.size / 2, this.y - 10));
+        currentScene.coins.push(new Coin(this.x + this.size / 2, this.y - 10));
         this.hasCoin = false;
       }
       return; 
@@ -403,12 +407,13 @@ class Platform{
   }
   
   display(){
+    if (!isInCurrentScene(this.scene)) return;
     image(blockImage, this.x, this.y, this.size, this.size);
   }
 }
 
 class Coin{
-  constructor(x, y, hasGravity = true){
+  constructor(x, y, hasGravity = true, scene){
     this.x = x - 7;
     this.y = y + 7;
     this.size = 15;
@@ -416,9 +421,11 @@ class Coin{
     this.hasGravity = hasGravity;
     this.velocityY = hasGravity ? -2 : 0;
     this.gravity = hasGravity ? 0.5 : 0;
+    this.scene = scene;
   }
   
   update(){
+    if (!isInCurrentScene(this.scene)) return;
     if(this.hasGravity){
       this.velocityY += this.gravity;
       this.y += this.velocityY;
@@ -430,14 +437,15 @@ class Coin{
       this.collected = true;
       collection();
       
-      let index = scenes[sceneIndex].coins.indexOf(this);
-      if(index > -1){
-        scenes[sceneIndex].coins.splice(index, 1);
-      }
+      // let index = scenes[sceneIndex].coins.indexOf(this);
+      // if(index > -1){
+      //   scenes[sceneIndex].coins.splice(index, 1);
+      // }
     }
   }
   
   display(){
+    if (!isInCurrentScene(this.scene)) return;
     if(!this.collected){
       image(coinImg, this.x, this.y, this.size, this.size);
     }
@@ -445,15 +453,19 @@ class Coin{
 }
 
 class Spike{
-  constructor(x, y, w){
+  constructor(x, y, w, scene){
     this.x = x;
     this.y = height - groundHeight + 14;
     this.w = w;
     this.h = 15;
     this.visible = false;
+    this.scene = scene;
   }
   
   update(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     if(difficulty === "easy"){
       this.visible = true;
     }
@@ -472,6 +484,9 @@ class Spike{
   }
   
   display(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     if(this.visible){
       image(spikeImage, this.x, this.y - this.h, this.w, this.h);
       //triangle(this.x, this.y, this.x + this.w / 2, this.y - this.h, this.x + this.w, this.y);
@@ -507,23 +522,54 @@ function respawnPlayer(){
     
   exp = 0;
   
-  let scene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];;
-  
-  for(let coin of scene.coins){
-    coin.collected = false;
+  for (let s of scenes) {
+    for (let coin of s.coins) {
+      coin.collected = false;
+    }
   }
-  scene.coins = [];
-  
-  for(let spike of scene.spikes){
-    spike.visible = false;
+  for (let s of hiddenScenes) {
+    for (let coin of s.coins) {
+      coin.collected = false;
+    }
   }
-  for(let platform of platforms){
-    platform.hasCoin = true;
+  //scene.coins = [];
+  
+  for (let s of scenes) {
+    for(let spike of s.spikes){
+      spike.visible = false;
+    }
+  }
+  
+  for (let s of hiddenScenes) {
+    for(let spike of s.spikes){
+      spike.visible = false;
+    }
+  }
+  
+  for (let s of scenes) {
+    for(let platform of s.platforms){
+      platform.hasCoin = true;
+    }
     //scene.coins.push(new Coin(platform.x + platform.size / 2, platform.y - 10));
   }
   
-  for (let movablePlatform of scene.movablePlatforms) {
-    movablePlatform.reset();
+  for (let s of hiddenScenes) {
+    for(let platform of s.platforms){
+      platform.hasCoin = true;
+    }
+    //scene.coins.push(new Coin(platform.x + platform.size / 2, platform.y - 10));
+  }
+  
+  for (let s of scenes) {
+    for (let movablePlatform of s.movablePlatforms) {
+      movablePlatform.reset();
+    }
+  }
+  
+  for (let s of hiddenScenes) {
+    for (let movablePlatform of s.movablePlatforms) {
+      movablePlatform.reset();
+    }
   }
   
   for (let gate of hiddenScenes[0].gates) {
@@ -578,7 +624,7 @@ function drawHUD(){
 }
 
 class Portal{
-  constructor(x, y, sceneType, sceneIndex){
+  constructor(x, y, sceneType, sceneIndex, scene){
     this.x = x;
     this.y = y + 14;
     this.w = 60;
@@ -586,9 +632,13 @@ class Portal{
     this.unlocked = false;
     this.sceneType = sceneType;
     this.sceneIndex = sceneIndex;
+    this.scene = scene;
   }
   
   update(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     if(!this.unlocked && this.isCollidingWithPlayer()){
       this.unlocked = true;
       if(!unlockedPortals.includes(this)){
@@ -607,6 +657,9 @@ class Portal{
   }
   
   display(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     if(this.unlocked){
       image(portalImgOpened, this.x, this.y, this.w, this.h);
     }
@@ -692,7 +745,17 @@ class Player{
       moving = true;
     }
     
-    
+    if(moving){
+      this.frameCounter++;
+      if(this.frameCounter >= 6){
+        this.imageIndex = 1 - this.imageIndex;
+        this.frameCounter = 0;
+      }
+    }
+    else{
+      this.imageIndex = 0;
+      this.frameCounter = 0;
+    }
     
     checkFallDeath();
     
@@ -708,7 +771,7 @@ class Player{
 
     for (let platform of currentScene.platforms) {
         if (
-            this.x + this.w > platform.x && this.x < platform.x + platform.size &&
+            this.prevX + this.w > platform.x + 1 && this.prevX < platform.x + platform.size &&
             this.y + this.h >= platform.y && this.prevY + this.h <= platform.y + 5
         ) {
             this.y = platform.y - this.h;
@@ -717,13 +780,39 @@ class Player{
             break;
         }
     }
+    
+    let isOnPipe = false;
+    for (let pipe of currentScene.pipes) {
+        if (
+            this.prevX + this.w > pipe.x + 1 && this.prevX < pipe.x + pipe.w &&
+            this.y + this.h >= pipe.y && this.prevY + this.h <= pipe.y + 5
+        ) {
+            this.y = pipe.y - this.h;
+            this.velocityY = 0;
+            isOnPipe = true;
+            break;
+        }
+    }
+    
+    let isOnMovablePlatform = false;
+    for (let movablePlatform of currentScene.movablePlatforms) {
+        if (
+            this.prevX + this.w > movablePlatform.x + 1 && this.prevX < movablePlatform.x + movablePlatform.w &&
+            this.y + this.h >= movablePlatform.y && this.prevY + this.h <= movablePlatform.y + 5
+        ) {
+            this.y = movablePlatform.y - this.h;
+            this.velocityY = 0;
+            isOnMovablePlatform = true;
+            break;
+        }
+    }
      
-    if (isOnPlatform) {
+    if (isOnPipe || isOnPlatform || isOnMovablePlatform) {
         this.onGround = true;
         this.hasDoubleJumped = false;
     } 
-    else if (!isPlayerOverCliff() && (this.y >= height - groundHeight + 14 - this.h || isOnPlatform)) {
-      this.y = isOnPlatform ? this.y : height - groundHeight + 14 - this.h;
+    else if (!isPlayerOverCliff() && (this.y >= height - groundHeight + 14 - this.h || isOnPlatform || isOnPipe || isOnMovablePlatform)) {
+      this.y = (isOnPlatform || isOnPipe || isOnMovablePlatform) ? this.y : height - groundHeight + 14 - this.h;
       this.velocityY = 0;
       if (!this.onGround) {
         this.onGround = true;
@@ -739,16 +828,7 @@ class Player{
     this.x = constrain(this.x, 0 - this.w / 2, width - this.w / 2);
   }
   
-  if(moving){
-    this.frameCounter++;
-    if(this.frameCounter >= 10){
-      this.imageIndex = 1 - this.imageIndex;
-      this.frameCounter = 0;
-    }
-    else{
-      this.imageIndex = 0;
-    }
-  }
+  
   
   checkSceneTransition(){
     let centerX = this.x + this.w / 2;
@@ -761,13 +841,13 @@ class Player{
     
       else if(centerX <= 0 && hiddenSceneIndex > 0){
         hiddenSceneIndex--;
-        this.x = width - this.w / 2;
+        this.x = width - this.w / 2 - 1;
         setupNextScene();
       }
       
       else{
         if(hiddenSceneIndex === 0 && centerX <= 0){
-         this.x = - this.w / 2; + 1
+         this.x = - this.w / 2 + 1;
         }
       
         if(hiddenSceneIndex === hiddenMaxScenes - 1 && centerX >= width){
@@ -778,7 +858,7 @@ class Player{
     else{
       if(centerX >= width && sceneIndex < maxScenes - 1){
         sceneIndex++;
-        this.x = - this.w / 2 + 1
+        this.x = - this.w / 2 + 1;
         setupNextScene();
       }
     
@@ -969,7 +1049,7 @@ class Button{
 }
 
 class Enemy{
-  constructor(x, y, w, h, speed, minX, maxX){
+  constructor(x, y, w, h, speed, minX, maxX, scene){
     this.x = x;
     this.y = y + 12;
     this.w = w;
@@ -978,9 +1058,14 @@ class Enemy{
     this.minX = minX;
     this.maxX = maxX;
     this.direction = 1;
+    this.scene = scene;
   }
   
   update(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+    
     if (difficulty === "easy") {
       this.speed = this.baseSpeed * 0.5; // 簡單模式速度變慢
     } else {
@@ -999,6 +1084,9 @@ class Enemy{
   }
   
   display(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     push();
     if(this.direction < 0){
       image(monsterImg1, this.x, this.y, this.w, this.h);
@@ -1021,11 +1109,11 @@ function setupNextScene(){
   if(inHiddenScene){
     console.log(`Switch to Hidden Scene ${hiddenSceneIndex}`);
   
-    spikes = [...hiddenScenes[hiddenSceneIndex].spikes];
-    enemies = [...hiddenScenes[hiddenSceneIndex].enemies];
-    platforms = [...hiddenScenes[hiddenSceneIndex].platforms];
-    coins = [...hiddenScenes[hiddenSceneIndex].coins];
-    portals = [...hiddenScenes[hiddenSceneIndex].portals];
+    // spikes = [...hiddenScenes[hiddenSceneIndex].spikes];
+    // enemies = [...hiddenScenes[hiddenSceneIndex].enemies];
+    // platforms = [...hiddenScenes[hiddenSceneIndex].platforms];
+    // coins = [...hiddenScenes[hiddenSceneIndex].coins];
+    // portals = [...hiddenScenes[hiddenSceneIndex].portals];
     
     for (let cs of hiddenScenes[hiddenSceneIndex].chasingSpikes) {
       cs.sceneIndex = hiddenSceneIndex; 
@@ -1036,11 +1124,11 @@ function setupNextScene(){
   else{
     console.log(`Switch to Scene ${sceneIndex}`);
   
-    spikes = [...scenes[sceneIndex].spikes];
-    enemies = [...scenes[sceneIndex].enemies];
-    platforms = [...scenes[sceneIndex].platforms];
-    coins = [...scenes[sceneIndex].coins];
-    portals = [...scenes[sceneIndex].portals];
+//     spikes = [...scenes[sceneIndex].spikes];
+//     enemies = [...scenes[sceneIndex].enemies];
+//     platforms = [...scenes[sceneIndex].platforms];
+//     coins = [...scenes[sceneIndex].coins];
+//     portals = [...scenes[sceneIndex].portals];
     
     console.log("Main Scene Platforms:", scenes[sceneIndex].platforms.map(p => p.x));
   }
@@ -1065,39 +1153,39 @@ class Scene{
     this.chasingSpikes = [];
   }
   
-  addPlatform(x, y, size){
+  addPlatform(x, y, size, hasCoin = true){
     let exists = this.platforms.some(p => p.x === x && p.y === y);
   if (exists) {
     console.warn(`⚠️ Duplicate Platform at (${x}, ${y}) in hidden scene!`);
   }
-    this.platforms.push(new Platform(x, y, size));
+    this.platforms.push(new Platform(x, y, size, hasCoin, this));
     
   }
   
   addCoin(x, y, hasGravity = true){
-    this.coins.push(new Coin(x, y, hasGravity));
+    this.coins.push(new Coin(x, y, hasGravity, this));
   }
   
   addSpike(x, y, w){
-    this.spikes.push(new Spike(x, y, w));
+    this.spikes.push(new Spike(x, y, w, this));
   }
   
   addEnemy(x, y, w, h, speed, minX, maxX){
-    this.enemies.push(new Enemy(x, y, w, h, speed, minX, maxX));
+    this.enemies.push(new Enemy(x, y, w, h, speed, minX, maxX, this));
   }
   
   addPortal(x, y, sceneType, sceneIndex){
-    let portal = new Portal(x, y, sceneType, sceneIndex);
+    let portal = new Portal(x, y, sceneType, sceneIndex, this);
     this.portals.push(portal);
     return portal;
   }
   
   addTurret(x, y){
-    this.turrets.push(new Turret(x, y));
+    this.turrets.push(new Turret(x, y, this));
   }
   
   addBullet(x, y, speed){
-    this.bullets.push(new Bullet(x, y, speed));
+    this.bullets.push(new Bullet(x, y, speed, this));
   }
   
   addCliff(startX, endX){
@@ -1105,28 +1193,28 @@ class Scene{
   }
   
   addBreakableBlock(x, y, size){
-    let block = new BreakableBlock(x, y, size,blockImage2);
+    let block = new BreakableBlock(x, y, size,blockImage2, this);
     this.breakableBlocks.push(block);
   }
   
   addPipe(x, y, w, h){
-    this.pipes.push(new Pipe(x, y, w, h));
+    this.pipes.push(new Pipe(x, y, w, h, this));
   }
   
   addMovablePlatform(startX, startY, endX, endY, size, speed){
-    this.movablePlatforms.push(new MovablePlatform(startX, startY, endX, endY, size, speed));
+    this.movablePlatforms.push(new MovablePlatform(startX, startY, endX, endY, size, speed, this));
   }
   
   addGate(x){
-    this.gates.push(new Gate(x));
+    this.gates.push(new Gate(x, this));
   }
   
   addSwitch(x, y){
-    this.switches.push(new Switch(x, y));
+    this.switches.push(new Switch(x, y, this));
   }
   
   addChasingSpike(){
-    this.chasingSpikes.push(new ChasingSpike());
+    this.chasingSpikes.push(new ChasingSpike(this));
   }
   
   update(){
@@ -1143,7 +1231,7 @@ class Scene{
     for (let gate of this.gates) gate.update();
     for (let s of this.switches) s.update();
       
-    for (let cs of this.chasingSpikes) cs.update();
+    // for (let cs of this.chasingSpikes) cs.update();
     }
   
   display(){
@@ -1159,14 +1247,15 @@ class Scene{
     for (let movablePlatform of this.movablePlatforms) movablePlatform.display();
     for (let gate of this.gates) gate.display();
     for (let s of this.switches) s.display();
-    for (let cs of this.chasingSpikes) cs.display();
+    // for (let cs of this.chasingSpikes) cs.display();
   }
 }
 
 class Turret{
-  constructor(x, y){
+  constructor(x, y, scene){
     this.x = x;
     this.y = y;
+    this.scene = scene;
     this.fireRate = 60;
     this.timer = 0;
     this.w = 30;
@@ -1174,9 +1263,12 @@ class Turret{
   }
   
   update(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
     this.timer++;
     if(this.timer >= this.fireRate){
-      scenes[sceneIndex].bullets.push(new Bullet(this.x + 10, this.y, -2));
+      this.scene.bullets.push(new Bullet(this.x + 10, this.y, -2, this.scene));
       this.timer = 0;
     }
     
@@ -1186,6 +1278,9 @@ class Turret{
   }
   
   display(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     image(turretImg, this.x, this.y, this.w, this.h);
   }
   
@@ -1196,9 +1291,10 @@ class Turret{
 }
 
 class Bullet{
-  constructor(x, y, speed){
+  constructor(x, y, speed, scene){
     this.x = x;
     this.y = y;
+    this.scene = scene;
     this.baseSpeed = speed;
     this.size = 10;
   }
@@ -1212,10 +1308,14 @@ class Bullet{
     
     this.y += this.speed;
     if(this.y < 0){
-      let index = scenes[sceneIndex].bullets.indexOf(this);
-      if(index > -1){
-        scenes[sceneIndex].bullets.splice(index, 1);
+      let index = this.scene.bullets.indexOf(this);
+      if (index > -1) {
+        this.scene.bullets.splice(index, 1);
       }
+    }
+
+    if(!isInCurrentScene(this.scene)){
+      return;
     }
     
     if(this.isCollidingWithPlayer()){
@@ -1234,16 +1334,19 @@ class Bullet{
 }
 
 class BreakableBlock{
-  constructor(x, y, size, image){
+  constructor(x, y, size, image, scene){
     this.x = x;
     this.y = y + 14 ;
     this.size = size;
     this.image = image;
     this.exists = true;
-    
+    this.scene = scene;
   }
   
   update(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     if(!this.exists) return;
     
     if (player.x + player.w > this.x && player.x < this.x + this.size &&
@@ -1271,6 +1374,9 @@ class BreakableBlock{
   }
   
   display(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     if(!this.exists) return;
     
     if(this.image){
@@ -1315,14 +1421,18 @@ function isPlayerOverCliff(){
 }
 
 class Pipe{
-  constructor(x, y, w, h){
+  constructor(x, y, w, h, scene){
     this.x = x;
     this.y = y + 14;
     this.w = w;
     this.h = h;
+    this.scene = scene;
   }
   
   update(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     if(player.x + player.w > this.x && player.x < this.x + this.w &&
        player.y + player.h >= this.y && player.y + player.h - player.velocityY < this.y + 5 &&
        player.velocityY > 0){
@@ -1345,6 +1455,9 @@ class Pipe{
   }
   
   display(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     image(pipeImg, this.x, this.y, this.w, this.h);
   }
 }
@@ -1359,7 +1472,7 @@ function enterHiddenLevel(){
 }
 
 class MovablePlatform{
-  constructor(startX, startY, endX, endY, size, speed = 5){
+  constructor(startX, startY, endX, endY, size, speed = 5, scene){
     this.x = startX;
     this.y = startY;
     this.startX = startX;
@@ -1367,13 +1480,18 @@ class MovablePlatform{
     this.endX = endX;
     this.endY = endY;
     this.size = size;
+    this.w = size;
     this.speed = speed;
     this.moving = false;
     this.reachedDestination = false;
     this.reset();
+    this.scene = scene;
   }
   
   update(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     if(!this.moving && dist(player.x + player.w / 2, player.y + player.h / 2, this.startX + this.size / 2, this.startY + this.size / 2) < 70){
       this.moving = true;
     }
@@ -1428,6 +1546,9 @@ class MovablePlatform{
   }
   
   display(){
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     image(blockImage, this.x, this.y, this.size, this.size);
   }
   
@@ -1441,15 +1562,19 @@ class MovablePlatform{
 }
 
 class Gate{
-  constructor(x) {
+  constructor(x, scene) {
     this.x = x;
     this.y = 0;
     this.w = 30;
     this.h = height - groundHeight;
     this.open = false;
+    this.scene = scene;
   }
   
   update() {
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     if (this.open) return;
 
     if (
@@ -1464,6 +1589,9 @@ class Gate{
   }
 
   display() {
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     fill(this.open ? "gray" : "brown");
     rect(this.x, this.y, this.w, this.h);
   }
@@ -1474,16 +1602,20 @@ class Gate{
 }
 
 class Switch {
-  constructor(x, y) {
+  constructor(x, y, scene) {
     this.x = x;
     this.y = y;
     this.w = 20;
     this.h = 20;
     this.activated = false;
     this.nearPlayer = false;
+    this.scene = scene;
   }
 
   update() {
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     this.nearPlayer = (
       player.x + player.w > this.x &&
       player.x < this.x + this.w &&
@@ -1493,6 +1625,9 @@ class Switch {
   }
 
   display() {
+    if (!isInCurrentScene(this.scene)){
+      return;
+    } 
     fill(this.activated ? "green" : "red");
     rect(this.x, this.y, this.w, this.h);
     if (this.nearPlayer && !this.activated) {
@@ -1525,7 +1660,7 @@ class Switch {
 }
 
 class ChasingSpike {
-  constructor() {
+  constructor(scene) {
     this.x = -30;
     this.y = 0;
     this.w = 30;
@@ -1534,6 +1669,7 @@ class ChasingSpike {
     this.active = false;
     this.sceneIndex = 0;
     this.startFrame = frameCount; 
+    this.scene = scene;
   }
 
   update() {
@@ -1543,40 +1679,27 @@ class ChasingSpike {
     this.x = elapsedFrames * this.speed - this.w;
 
     // **检测幕切换**
-    if (this.x >= width) {
-      if (this.sceneIndex < hiddenMaxScenes - 1) {
-        this.sceneIndex++; // 进入下一幕
-        hiddenSceneIndex = this.sceneIndex;
-        this.x = -this.w; // 追击刺从左侧进入
-        this.startFrame = frameCount; // 重置帧数
-        setupNextScene();
-      } else {
-        this.x = width - this.w; // 在最后一幕停止
-      }
-    }
-
-    // **如果返回上一幕**
-    if (this.sceneIndex !== hiddenSceneIndex) {
-      let sceneOffset = (hiddenSceneIndex - this.sceneIndex) * width;
-      this.sceneIndex = hiddenSceneIndex;
-      this.x += sceneOffset; // 确保追击刺回到正确的位置
-    }
+    this.sceneIndex = Math.floor(this.x / width);
 
     // **检测玩家碰撞**
-    if (
-      player.x < this.x + this.w &&
-      player.x + player.w > this.x &&
-      player.y < this.y + this.h &&
-      player.y + player.h > this.y
-    ) {
-      respawnPlayer();
+    if (this.sceneIndex === hiddenSceneIndex) {
+      let relativeX = this.x - this.sceneIndex * width; // 转换为当前幕坐标
+      if (
+        player.x < relativeX + this.w &&
+        player.x + player.w > relativeX &&
+        player.y < this.y + this.h &&
+        player.y + player.h > this.y
+      ) {
+        respawnPlayer();
+      }
     }
   }
 
   display() {
     if (!this.active) return;
+    if (this.sceneIndex !== hiddenSceneIndex) return;
     fill("black");
-    rect(this.x, this.y, this.w, this.h);
+    rect(this.x - this.sceneIndex * width, this.y, this.w, this.h);
   }
   
   reset() {
@@ -1600,6 +1723,10 @@ class upgradeButton extends Button {
     this.w = 300; // 变大宽度
     this.h = 450; // 变大高度
   }
+}
+
+function isInCurrentScene(scene){
+  return scene === (inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex]);
 }
 
 function drawUpgrade() {
