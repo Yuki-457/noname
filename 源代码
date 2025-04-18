@@ -1,4 +1,4 @@
-let bgImage, blockImage, blockImage2, spikeImage, playerImage, groundImage, portalImgClosed, portalImgOpened, playerImg1, playerImg2, pipeImg, monsterImg1, bulletImg, turretImg, coinImg, coverImg, logo2Img;
+let bgImage, blockImage, blockImage2, spikeImage, playerImage, groundImage, portalImgClosed, portalImgOpened, playerImg1, playerImg2, pipeImg, monsterImg1, bulletImg, turretImg, coinImg, coverImg, logo2Img, witchImg, potionImg, cloudImg, cloudStingImg, signBoardImg;
 
 let buttons = [];
 let gameState = "menu";
@@ -33,6 +33,9 @@ let difficultyButtons = [];
 let difficulty = "easy"; 
 let backButton;
 let upgradeButtons = [];
+let wizard;
+let buffLevel = 0;
+let upgradeOption = 0;
 
 function setup() {
   createCanvas(800, 600);
@@ -130,6 +133,17 @@ function setup() {
   }*/
   
   scenes[1].addPipe(650, height - groundHeight - 110, 75, 110);
+
+  let portal2 = scenes[2].addPortal(100, height - groundHeight - 60, "main", 2);
+  lastCheckPoint = { x: portal2.x, y: portal2.y, scene: 2 };
+
+  scenes[2].addCliff(500, 600);
+  scenes[2].addHiddenBlock(500, height - groundHeight - 80, 30);
+  scenes[2].addBillBoard(250, height - groundHeight - 180);
+  if(!scenes[2].clouds){
+    scenes[2].clouds = [];
+  }
+  scenes[2].clouds.push(new Cloud(500, 120, 150, 100, scenes[2]));
   
   hiddenScenes = [];
   for(let i = 0; i < hiddenMaxScenes; i++){
@@ -176,18 +190,22 @@ function setup() {
   //hiddenScenes[2].addPlatform(0, height - groundHeight - 100, 30, true);
   hiddenScenes[2].addPlatform(30, height - groundHeight - 70, 30, true);
   hiddenScenes[2].addPlatform(60, height - groundHeight - 70, 30, true);
-  
+
   for(let i = 0; i < 4; i++){
     hiddenScenes[2].addPlatform(30, height - groundHeight -(200 + i * 30), 30, false);
     hiddenScenes[2].addPlatform(60, height - groundHeight -(200 + i * 30), 30, false);
   }
-    hiddenScenes[2].addPlatform(130, height - groundHeight - 150, 30, true);
-    hiddenScenes[2].addPlatform(160, height - groundHeight - 150, 30, true);
-    hiddenScenes[2].addPlatform(240, height - groundHeight - 100, 30, true);
-    hiddenScenes[2].addPlatform(270, height - groundHeight - 100, 30, true);
-    hiddenScenes[2].addPlatform(380, height - groundHeight - 100, 30, true);
-    hiddenScenes[2].addPlatform(410, height - groundHeight - 100, 30, true);
-    hiddenScenes[2].addPlatform(440, height - groundHeight - 100, 30, true);
+  hiddenScenes[2].addPlatform(130, height - groundHeight - 150, 30, true);
+  hiddenScenes[2].addPlatform(160, height - groundHeight - 150, 30, true);
+  hiddenScenes[2].addPlatform(240, height - groundHeight - 100, 30, true);
+  hiddenScenes[2].addPlatform(270, height - groundHeight - 100, 30, true);
+  hiddenScenes[2].addPlatform(380, height - groundHeight - 100, 30, true);
+  hiddenScenes[2].addPlatform(410, height - groundHeight - 100, 30, true);
+  hiddenScenes[2].addPlatform(440, height - groundHeight - 100, 30, true);
+  hiddenScenes[2].addFinalGate(500);
+  
+  hiddenScenes[2].addWizard(600, height - groundHeight - 40);
+  hiddenScenes[2].addEndSwitch(700, height - groundHeight - 40);
 }
 
 function draw() {
@@ -207,6 +225,7 @@ function draw() {
   }
   else if(gameState === "upgrade"){
     drawUpgrade();
+    handleUpgradeInput();
   }
 }
 
@@ -306,15 +325,27 @@ function drawGame(){
   }
 
   currentScene.display();
+
+  if(currentScene.finalGate){
+    currentScene.finalGate.display();
+  }
   
   player.update();
   player.display();
   drawHUD();
+
+  for (let pb of currentScene.playerBullets) pb.update();
+  for (let pb of currentScene.playerBullets) pb.display();
   
   //fill(0);
   //textSize(20);
   //text(`Scene: ${sceneIndex}`, width - 80, 30);
   
+  if(wizard){
+    wizard.update();
+    wizard.display();
+  }
+
   if(isChoosingPortal){
     drawPortalSelection();
   }
@@ -583,7 +614,33 @@ function respawnPlayer(){
   for (let cs of hiddenScenes[0].chasingSpikes) {
     cs.reset();
   }
-  
+
+  for(let fg of hiddenScenes[2].finalGates){
+    fg.reset();
+  }
+
+  if(wizard){
+    wizard.reset();
+  }
+
+  for (let s of hiddenScenes) {
+    for (let es of s.endSwitches || []) {
+      es.reset();
+    }
+  }
+
+  for(let s of scenes){
+    for(let e of s.enemies){
+      e.reset();
+    }
+  }
+
+  for(let s of hiddenScenes){
+    for(let e of s.enemies){
+      e.reset();
+    }
+  }
+
   //scene.enemies = [];
   //scene.spikes = [];
   setupNextScene();
@@ -645,8 +702,9 @@ class Portal{
         unlockedPortals.push(this);
       }
       
-      goldCoins += 5;
-      exp += 5;
+      for(let i = 0; i < 5; i++){
+        collection();
+      }
       lastCheckPoint = { x: this.x, y: this.y, scene: inHiddenScene ? hiddenSceneIndex : sceneIndex, sceneType: inHiddenScene ? "hidden" : "main"};
     }
     
@@ -725,6 +783,9 @@ class Player{
     this.facingRight = true;
     this.frameCounter = 0;
     this.imageIndex = 0;
+    this.weaponLevel = 0;
+    this.buffLevel = 0;
+    this.shootCooldown = 0;
   }
   
   update(){
@@ -762,6 +823,9 @@ class Player{
     if(!this.onGround){
       this.velocityY += this.gravity;
     }
+
+    this.w = buffLevel >= 1 ? 37.5 : 25;
+    this.h = buffLevel >= 1 ? 60 : 40;
     
     this.x += this.velocityX;
     this.y += this.velocityY;
@@ -806,13 +870,39 @@ class Player{
             break;
         }
     }
+
+    let isOnHiddenBlock = false;
+    for (let hiddenBlock of currentScene.hiddenBlocks) {
+        if (
+            this.prevX + this.w > hiddenBlock.x + 1 && this.prevX < hiddenBlock.x + hiddenBlock.size &&
+            this.y + this.h >= hiddenBlock.y && this.prevY + this.h <= hiddenBlock.y + 5
+        ) {
+            this.y = hiddenBlock.y - this.h;
+            this.velocityY = 0;
+            isOnHiddenBlock = true;
+            break;
+        }
+    }
+
+    let isOnBillBoard = false;
+    for (let billBoard of currentScene.billBoards) {
+        if (
+            this.prevX + this.w > billBoard.x + 1 && this.prevX < billBoard.x + billBoard.w &&
+            this.y + this.h >= billBoard.y && this.prevY + this.h <= billBoard.y + 5
+        ) {
+            this.y = billBoard.y - this.h;
+            this.velocityY = 0;
+            isOnBillBoard = true;
+            break;
+        }
+    }
      
-    if (isOnPipe || isOnPlatform || isOnMovablePlatform) {
+    if (isOnPipe || isOnPlatform || isOnMovablePlatform || isOnHiddenBlock || isOnBillBoard) {
         this.onGround = true;
         this.hasDoubleJumped = false;
     } 
-    else if (!isPlayerOverCliff() && (this.y >= height - groundHeight + 14 - this.h || isOnPlatform || isOnPipe || isOnMovablePlatform)) {
-      this.y = (isOnPlatform || isOnPipe || isOnMovablePlatform) ? this.y : height - groundHeight + 14 - this.h;
+    else if (!isPlayerOverCliff() && (this.y >= height - groundHeight + 14 - this.h || isOnPlatform || isOnPipe || isOnMovablePlatform || isOnHiddenBlock || isOnBillBoard)) {
+      this.y = (isOnPlatform || isOnPipe || isOnMovablePlatform || isOnHiddenBlock || isOnBillBoard) ? this.y : height - groundHeight + 14 - this.h;
       this.velocityY = 0;
       if (!this.onGround) {
         this.onGround = true;
@@ -821,6 +911,10 @@ class Player{
     } 
     else {
       this.onGround = false;
+    }
+
+    if(this.shootCooldown > 0){
+      this.shootCooldown--;
     }
 
     this.checkSceneTransition();
@@ -873,15 +967,39 @@ class Player{
   display(){
     let imgToShow = this.imageIndex === 0 ? playerImg1 : playerImg2;
     
+    let scaleFactor = 1.0;
+    push();
+    translate(this.x + this.w / 2, this.y - this.h / 2);
+    scale(scaleFactor);
     if(!this.facingRight){
-      push();
       scale(-1, 1);
-      image(imgToShow, -this.x - this.w, this.y, this.w, this.h);
-      pop();
+      image(imgToShow, -this.w / 2, this.h / 2, this.w, this.h);
     }
     else{
-      image(imgToShow, this.x, this.y, this.w, this.h);
+      image(imgToShow, -this.w / 2, this.h / 2, this.w, this.h);
     }
+    pop();
+  }
+
+  tryShoot(){
+    console.log("tryShoot called, level =", this.weaponLevel, "cooldown =", this.shootCooldown);
+    if(this.shootCooldown > 0 || this.weaponLevel === 0){
+      return;
+    }
+
+    const scene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+    const bulletY = this.y + this.h / 2;
+    const bulletX = this.facingRight ? this.x + this.w : this.x - 10;
+    const direction = this.facingRight ? 1 : -1;
+    if (!scene.playerBullets) scene.playerBullets = [];
+    scene.playerBullets.push(new PlayerBullet(bulletX, bulletY, direction, scene));
+    console.log(scene.playerBullets);
+    if(this.weaponLevel >= 2){
+      setTimeout(() => {
+        scene.playerBullets.push(new PlayerBullet(bulletX, bulletY, direction, scene));
+      }, 100);
+    }
+    this.shootCooldown = 30;
   }
 }
 
@@ -1000,11 +1118,15 @@ function keyPressed(){
         player.onGround = false;
         player.hasDoubleJumped = false;
       }
-      else if(player.canDoubleJump && !player.hasDoubleJumped){
+      else if(buffLevel >= 2 && !player.hasDoubleJumped){
         player.velocityY = player.jumpPower * 0.9;
         player.hasDoubleJumped = true;
       }
     }
+  
+  else if(keyCode === controls.attack.charCodeAt(0)){
+    player.tryShoot();
+  }
 }
 
 class Button{
@@ -1059,10 +1181,15 @@ class Enemy{
     this.maxX = maxX;
     this.direction = 1;
     this.scene = scene;
+    this.dead = false;
   }
   
   update(){
     if(!isInCurrentScene(this.scene)){
+      return;
+    }
+
+    if(this.dead){
       return;
     }
     
@@ -1077,14 +1204,14 @@ class Enemy{
     if(this.x >= this.maxX || this.x <= this.minX){
       this.direction *= -1;
     }
-    
+
     if(this.isCollidingWithPlayer()){
       respawnPlayer();
     }
   }
   
   display(){
-    if (!isInCurrentScene(this.scene)){
+    if (!isInCurrentScene(this.scene) || this.dead){
       return;
     } 
     push();
@@ -1102,6 +1229,10 @@ class Enemy{
   isCollidingWithPlayer(){
     return(player.x < this.x + this.w && player.x + player.w > this.x &&
            player.y < this.y + this.h && player.y + player.h > this.y);
+  }
+
+  reset(){
+    this.dead = false;
   }
 }
 
@@ -1144,13 +1275,21 @@ class Scene{
     this.portals = [];
     this.turrets = [];
     this.bullets = [];
+    this.playerBullets = [];
     this.cliffs = [];
     this.breakableBlocks = [];
     this.pipes = [];
     this.movablePlatforms = [];
     this.gates = [];
+    this.finalGates = [];
     this.switches = [];
     this.chasingSpikes = [];
+    this.wizards = [];
+    this.antidotes = [];
+    this.endSwitches = [];
+    this.hiddenBlocks = [];
+    this.billBoards = [];
+    this.clouds = [];
   }
   
   addPlatform(x, y, size, hasCoin = true){
@@ -1209,12 +1348,32 @@ class Scene{
     this.gates.push(new Gate(x, this));
   }
   
+  addFinalGate(x){
+    this.finalGates.push(new FinalGate(x, this));
+  }
+
   addSwitch(x, y){
     this.switches.push(new Switch(x, y, this));
   }
   
   addChasingSpike(){
     this.chasingSpikes.push(new ChasingSpike(this));
+  }
+
+  addWizard(x, y){
+    this.wizards.push(new Wizard(x, y, this));
+  }
+
+  addEndSwitch(x, y){
+    this.endSwitches.push(new EndSwitch(x, y, this));
+  }
+
+  addHiddenBlock(x, y, size){
+    this.hiddenBlocks.push(new HiddenBlock(x, y, size, this));
+  }
+
+  addBillBoard(x, y){
+    this.billBoards.push(new Billboard(x, y, this));
   }
   
   update(){
@@ -1229,7 +1388,14 @@ class Scene{
     for(let pipe of this.pipes) pipe.update();
     for (let movablePlatform of this.movablePlatforms) movablePlatform.update();
     for (let gate of this.gates) gate.update();
+    for (let finalGate of this.finalGates) finalGate.update();
     for (let s of this.switches) s.update();
+    for(let w of this.wizards) w.update();
+    for(let antidote of this.antidotes) antidote.update();
+    for(let es of this.endSwitches) es.update();
+    for(let h of this.hiddenBlocks) h.update();
+    for(let bb of this.billBoards) bb.update();
+    for(let cloud of this.clouds) cloud.update();
       
     // for (let cs of this.chasingSpikes) cs.update();
     }
@@ -1245,8 +1411,16 @@ class Scene{
     for(let block of this.breakableBlocks) block.display();
     for(let pipe of this.pipes) pipe.display();
     for (let movablePlatform of this.movablePlatforms) movablePlatform.display();
+
     for (let gate of this.gates) gate.display();
+    for (let finalGate of this.finalGates) finalGate.display();
     for (let s of this.switches) s.display();
+    for(let w of this.wizards) w.display();
+    for(let antidote of this.antidotes) antidote.display();
+    for(let es of this.endSwitches) es.display();
+    for(let h of this.hiddenBlocks) h.display();
+    for(let bb of this.billBoards) bb.display();
+    for(let cloud of this.clouds) cloud.display();
     // for (let cs of this.chasingSpikes) cs.display();
   }
 }
@@ -1330,6 +1504,62 @@ class Bullet{
   isCollidingWithPlayer(){
     return(player.x < this.x + this.size && player.x + player.w > this.x &&
            player.y < this.y + this.size && player.y + player.h > this.y);
+  }
+}
+
+class PlayerBullet{
+  constructor(x, y, direction, scene){
+    this.x = x;
+    this.y = y;
+    this.w = 10;
+    this.h = 10;
+    this.speed = 5;
+    this.direction = direction;
+    this.distanceTraveled = 0;
+    this.maxDistance = 200;
+    this.scene = scene;
+    this.active = true;
+  }
+
+  update(){
+    if(!isInCurrentScene(this.scene) || !this.active){
+      return;
+    }
+    this.x += this.speed * this.direction;
+    this.distanceTraveled += Math.abs(this.speed);
+
+    const scene = this.scene;
+    const allSolids = [...scene.platforms, ...scene.pipes, ...scene.breakableBlocks, ...scene.movablePlatforms, ...scene.hiddenBlocks];
+    for(let solid of allSolids){
+      if(
+        this.x + this.w > solid.x && this.x < solid.x + (solid.w || solid.size) &&
+        this.y + this.h > solid.y && this.y < solid.y + (solid.h || solid.size)){
+          this.active = false;
+          return;
+        }
+    }
+
+    for(let enemy of scene.enemies){
+      if(
+        this.x + this.w > enemy.x && this.x < enemy.x + enemy.w &&
+        this.y + this.h > enemy.y && this.y < enemy.y + enemy.h
+      ){
+        enemy.dead = true;
+        this.active = false;
+        return;
+      }
+    }
+
+    if(this.distanceTraveled > this.maxDistance){
+      this.active = false;
+    }
+  }
+
+  display(){
+    if(!isInCurrentScene(this.scene) || !this.active){
+      return;
+    }
+    image(bulletImg, this.x, this.y, this.w, this.h);
   }
 }
 
@@ -1601,6 +1831,52 @@ class Gate{
   }
 }
 
+class FinalGate{
+  constructor(x, scene){
+    this.x = x;
+    this.y = 0;
+    this.w = 30;
+    this.h = height - groundHeight;
+    this.closed = false;
+    this.scene = scene;
+  }
+
+  update(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+  
+    if(!this.closed &&
+       player.x > this.x + this.w &&
+       player.y + player.h > this.y && player.y < this.y + this.h
+    ){
+      this.closed = true;
+      // player.x = this.x + this.w;
+      // player.velocityX = 0;
+    }
+
+    if(this.closed &&
+       player.x < this.x + this.w &&
+       player.y + player.h > this.y && player.y < this.y + this.h
+    ){
+      player.x = this.x + this.w;
+      player.velocityX = 0;
+    }
+  }
+
+  display(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+    fill(this.closed ? "brown" : "gray");
+    rect(this.x, this.y, this.w, this.h);
+  }
+
+  reset(){
+    this.closed = false;
+  }
+}
+
 class Switch {
   constructor(x, y, scene) {
     this.x = x;
@@ -1674,16 +1950,14 @@ class ChasingSpike {
 
   update() {
     if (!this.active) return;
-    // **追击刺应当跨幕持续运动**
+    
     let elapsedFrames = frameCount - this.startFrame;
     this.x = elapsedFrames * this.speed - this.w;
 
-    // **检测幕切换**
     this.sceneIndex = Math.floor(this.x / width);
 
-    // **检测玩家碰撞**
     if (this.sceneIndex === hiddenSceneIndex) {
-      let relativeX = this.x - this.sceneIndex * width; // 转换为当前幕坐标
+      let relativeX = this.x - this.sceneIndex * width; 
       if (
         player.x < relativeX + this.w &&
         player.x + player.w > relativeX &&
@@ -1692,6 +1966,12 @@ class ChasingSpike {
       ) {
         respawnPlayer();
       }
+    }
+
+    let fg = hiddenScenes[2].finalGates[0];
+    let relativeX = this.x - 2 * width;
+    if(fg && relativeX + this.w >= fg.x){
+      this.active = false;
     }
   }
 
@@ -1725,28 +2005,391 @@ class upgradeButton extends Button {
   }
 }
 
+class Wizard{
+  constructor(x, y, scene){
+    this.x = x;
+    this.y = y + 14;
+    this.w = 25;
+    this.h = 40;
+    this.scene = scene;
+    this.stage = 0;
+    this.cooldown = 0;
+    this.dialog = "";
+    this.antidote = null;
+  }
+
+  update(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+    if(dist(player.x + player.w / 2, player.y + player.h / 2, this.x + this.w / 2, this.y + this.h / 2) < 50){
+      if(keyIsDown(controls.use.charCodeAt(0)) && this.cooldown === 0){
+        this.stage++;
+        if(this.stage === 1){
+          this.dialog = "111";
+        }
+        else if(this.stage === 2){
+          this.dialog = "222";
+          if(!this.antidote){
+            this.antidote = new Antidote(this.x + 15, this.y + this.h - 10, this.scene);
+            this.scene.antidotes.push(this.antidote);
+          }
+        }
+        else{
+          this.dialog = "333";
+        }
+        this.cooldown = 20;
+      }
+    }
+
+    if(this.cooldown > 0){
+      this.cooldown--;
+    }
+  }
+
+  display(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+    image(witchImg, this.x, this.y, this.w, this.h);
+
+    if(dist(player.x + player.w / 2, player.y + player.h / 2, this.x + this.w / 2, this.y + this.h / 2) < 50){
+      fill("white");
+      textSize(16);
+      text("Press E", this.x + 10, this.y - 20);
+    }
+
+    if(this.dialog){
+      fill("white");
+      textSize(20);
+      text(this.dialog, this.x + 10, this.y - 40);
+    }
+  }
+
+  reset(){
+    this.stage = 0;
+    this.cooldown = 0;
+    this.dialog = "";
+    this.antidote = null;
+  }
+}
+
+class Antidote{
+  constructor(x, y, scene){
+    this.x = x;
+    this.y = y;
+    this.size = 20;
+    this.collected = false;
+    this.scene = scene;
+  }
+
+  update(){
+    if(!isInCurrentScene(this.scene) || this.collected){
+      return;
+    }
+
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y + player.h > this.y && player.y < this.y + this.size
+    ){
+      this.collected = true;
+      console.log("Antidote collected!");
+    }
+  }
+
+  display(){
+    if(!isInCurrentScene(this.scene) || this.collected){
+      return;
+    }
+    image(potionImg, this.x, this.y, this.size, this.size);
+  }
+}
+
+class EndSwitch{
+  constructor(x, y, scene){
+    this.x = x;
+    this.y = y;
+    this.w = 20;
+    this.h = 40;
+    this.activated = false;
+    this.scene = scene;
+    this.nearPlayer = false;
+  }
+
+  update(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+    this.nearPlayer = (player.x + player.w > this.x && player.x < this.x + this.w &&
+       player.y + player.h > this.y && player.y < this.y + this.h
+    );
+
+    if(this.nearPlayer && !this.activated && keyIsDown(controls.use.charCodeAt(0))){
+      this.activated = true;
+      inHiddenScene = false;
+      sceneIndex = 1;
+      setupNextScene;
+      player.x = 650 + 10;
+      player.y = height - groundHeight - 110 - player.h;
+      player.velocityX = 0;
+      player.velocityY = 0;
+    }
+  }
+
+  display(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+    fill(this.activated ? "green" : "orange");
+    rect(this.x, this.y, this.w, this.h);
+    if(this.nearPlayer && !this.activated){
+      fill("white");
+      textSize(16);
+      text("Press E to back", this.x + this.w / 2, this.y - 10);
+    }
+  }
+
+  reset(){
+    this.activated = false;
+  }
+}
+
+class HiddenBlock{
+  constructor(x, y, size, scene){
+    this.x = x;
+    this.y = y;
+    this.size = size;
+    this.scene = scene;
+    this.hasCoin = false;
+    this.visible = false;
+  }
+
+  update(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+    this.visible = dist(player.x + player.w / 2, player.y + player.h / 2, this.x + this.size / 2, this.y + this.size / 2) < 50;
+
+    if(!this.visible){
+      return;
+    }
+    let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+
+    if(player.y + player.h > this.y && player.y < this.y + this.size){
+      let nextX = player.x + player.velocityX;
+      if(player.velocityX > 0 && player.prevX + player.w <= this.x + 1 && nextX + player.w > this.x){
+        player.x = this.x - player.w;
+        player.velocityX = 0;
+      }
+      if(player.velocityX < 0 && player.prevX >= this.x + this.size - 1 && nextX < this.x + this.size){
+        player.x = this.x + this.size;
+        player.velocityX = 0;
+      }
+    }
+    if(player.x + player.w > this.x && player.x < this.x + this.size &&
+       player.y < this.y + this.size && player.prevY >= this.y + this.size &&
+       player.velocityY < 0
+      ){
+        player.y = this.y + this.size;
+        player.velocityY = 0;
+        return;
+      }
+
+      if(player.x + player.w > this.x && player.x < this.x + this.size &&
+         player.y + player.h > this.y && player.prevY + player.h <= this.y &&
+         player.velocityY > 0
+      ){
+        player.y = this.y - player.h;
+        player.velocityY = 0;
+        player.onGround = true;
+        return;
+      }
+  }
+
+  display(){
+    if(!isInCurrentScene(this.scene) || !this.visible){
+      return;
+    }
+    image(blockImage, this.x, this.y, this.size, this.size);
+  }
+}
+
+class Billboard{
+  constructor(x, y, scene){
+    this.x = x;
+    this.y = y + 14;
+    this.w = 230;
+    this.h = 100;
+    this.scene = scene;
+  }
+
+  update(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+    let currentScene = inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex];
+
+    if(player.y + player.h > this.y && player.y < this.y + this.h){
+      let nextX = player.x + player.velocityX;
+      if(player.velocityX > 0 && player.prevX + player.w <= this.x + 1 && nextX + player.w > this.x){
+        player.x = this.x - player.w;
+        player.velocityX = 0;
+      }
+      if(player.velocityX < 0 && player.prevX >= this.x + this.w - 1 && nextX < this.x + this.w){
+        player.x = this.x + this.w;
+        player.velocityX = 0;
+      }
+    }
+
+    if(player.x + player.w > this.x && player.x < this.x + this.w &&
+       player.y < this.y + this.h && player.prevY >= this.y + this.h &&
+       player.velocityY < 0
+    ){
+      player.y = this.y + this.h;
+      player.velocityY = 0;
+      return;
+    }
+
+    if(player.x + player.w > this.x && player.x < this.x + this.w &&
+       player.y + player.h > this.y && player.prevY + player.h <= this.y &&
+       player.velocityY > 0
+    ){
+      player.y = this.y - player.h;
+      player.velocityY = 0;
+      player.onGround = true;
+      return;
+    }
+  }
+
+  display(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+    image(signBoardImg, this.x, this.y, this.w, this.h);
+  }
+}
+
+class Cloud{
+  constructor(x, y, w, h, scene){
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+    this.scene = scene;
+    this.dangerous = false;
+    this.activationDistance = 180;
+  }
+
+  update(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+    const playerCenterX = player.x + player.w / 2;
+    const playerCenterY = player.y - player.h / 2;
+    const cloudCenterX = this.x + this.w / 2;
+    const cloudCenterY = this.y - this.h / 2;
+
+    this.dangerous = dist(playerCenterX, playerCenterY, cloudCenterX, cloudCenterY) < this.activationDistance;
+
+    if(this.dangerous && this.collidesWithPlayer()){
+      respawnPlayer();
+    }
+  }
+
+  display(){
+    if(!isInCurrentScene(this.scene)){
+      return;
+    }
+
+    if(this.dangerous){
+      image(cloudStingImg, this.x, this.y, this.w, this.h);
+    }
+    else{
+      image(cloudImg, this.x, this.y, this.w, this.h);
+    }
+  }
+
+  collidesWithPlayer(){
+    return(
+      player.x < this.x + this.w &&
+      player.x + player.w > this.x &&
+      player.y > this.y - this.h &&
+      player.y - player.h < this.y
+    );
+  }
+}
+
 function isInCurrentScene(scene){
   return scene === (inHiddenScene ? hiddenScenes[hiddenSceneIndex] : scenes[sceneIndex]);
 }
 
 function drawUpgrade() {
-  upgradeButtons.push(new upgradeButton(50, 75, "Increase Size", () => {
-    player.h = 60;
-    player.w = 37.5;
-    player.jumpPower = -Math.sqrt(2 * player.gravity * (150 + (player.h - 40) * 2)); 
-    gameState = "playing";
-  }));
-  upgradeButtons.push(new upgradeButton(450, 75, "Double Jump", () => {
-    player.canDoubleJump = true;
-    gameState = "playing";
-  }));
+  // upgradeButtons.push(new upgradeButton(50, 75, "Increase Size", () => {
+  //   player.h = 60;
+  //   player.w = 37.5;
+  //   player.jumpPower = -Math.sqrt(2 * player.gravity * (150 + (player.h - 40) * 2)); 
+  //   gameState = "playing";
+  // }));
+  // upgradeButtons.push(new upgradeButton(450, 75, "Double Jump", () => {
+  //   player.canDoubleJump = true;
+  //   gameState = "playing";
+  // }));
 
-  fill(0);
-  textSize(30);
-  text("Select an upgrade option", 400, 50);
+  // fill(0);
+  // textSize(30);
+  // text("Select an upgrade option", 400, 50);
   
-  for (let btn of upgradeButtons) {
-    btn.display();
+  // for (let btn of upgradeButtons) {
+  //   btn.display();
+  // }
+  background(0, 150);
+  fill("white");
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text("Choose an upgrade", width / 2, 50);
+
+  fill(upgradeOption === 0 ? "yellow" : "white");
+  rect(100, 120, 200, 80);
+  fill("black");
+  text(`Weapon Lv.${player.weaponLevel + 1}`, 200, 160);
+
+  fill(upgradeOption === 1 ? "yellow" : "white");
+  rect(100, 220, 200, 80);
+  fill("black");
+  text(player.weaponLevel === 0 ? "Unlock Shooting" : "Double Shot", 200, 260);
+
+  fill(upgradeOption === 2 ? "yellow" : "white");
+  rect(400, 120, 200, 80);
+  fill("black");
+  text(`Buff Lv.${buffLevel + 1}`, 500, 160);
+
+  fill(upgradeOption === 3 ? "yellow" : "white");
+  rect(400, 220, 200, 80);
+  fill("black");
+  text(buffLevel === 0 ? "Get Bigger" : "Double Jump", 500, 260);
+
+  fill("white");
+  textSize(16);
+  text("Use <--> to select, Enter to confirm", width / 2, height - 40);
+}
+
+function handleUpgradeInput(){
+  if(keyIsPressed && key === "ArrowRight") upgradeOption = upgradeOption === 0 || upgradeOption === 1 ? (upgradeOption + 2) % 4 : upgradeOption;
+  if (keyIsPressed && key === "ArrowLeft") upgradeOption = upgradeOption === 2 || upgradeOption === 3 ? (upgradeOption + 2) % 4 : upgradeOption;
+  //if (keyIsPressed && key === "ArrowUp") upgradeOption = (upgradeOption + 3) % 4;
+  //if (keyIsPressed && key === "ArrowDown") upgradeOption = (upgradeOption + 1) % 4;
+
+  if(keyIsPressed && keyCode === ENTER){
+    if(upgradeOption === 0 || upgradeOption === 1){
+      if(player.weaponLevel < 2){
+        player.weaponLevel++;
+      }
+    }
+    else{
+      if(buffLevel < 2){
+        buffLevel++;
+      }
+    }
+    gameState = "playing";
   }
 }
 
@@ -1767,4 +2410,9 @@ function preload(){
   coinImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Can.png");
   coverImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/cover.PNG");
   logo2Img = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/logo2.PNG");
+  witchImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Wizard.png");
+  potionImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Antidote.png");
+  cloudImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Cloud.PNG");
+  cloudStingImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Cloud%20%2B%20Sting.PNG");
+  signBoardImg = loadImage("https://raw.githubusercontent.com/Yuki-457/noname/main/images/Signboard.PNG");
 }
