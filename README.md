@@ -11,7 +11,7 @@ CHENG HSUAN LEE, bo24397@bristol.ac.uk, Allison-sa
 
 # Our Game
 <p align="center">
-  <a href="https://uob-comsm0166.github.io/2025-group-26/Gamecode/index.html" target="_blank">
+  <a href="https://yuki-457.github.io/noname/Alert_lift_2025_05_15_12_28_08/index.html" target="_blank">
     <img src="https://github.com/user-attachments/assets/acc4cfaa-2513-4f93-b0e4-8ad3d63c5d21" alt="poster" >
   </a>
   <br>
